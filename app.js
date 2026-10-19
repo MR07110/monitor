@@ -226,11 +226,11 @@
         enableWorker: false,
         lazyLoad: false,
         autoCleanupSourceBuffer: true,
-        autoCleanupMaxBackwardDuration: 3,
-        autoCleanupMinBackwardDuration: 1,
+        autoCleanupMaxBackwardDuration: 6,
+        autoCleanupMinBackwardDuration: 2,
         liveBufferLatencyChasing: true,
-        liveBufferLatencyMaxLatency: 0.25,
-        liveBufferLatencyMinRemain: 0.03,
+        liveBufferLatencyMaxLatency: 0.8,
+        liveBufferLatencyMinRemain: 0.15,
         liveBufferLatencyChasingOnPaused: false
       });
 
@@ -254,21 +254,29 @@
       videoEl.addEventListener('canplay', triggerPlay, { once: true });
       triggerPlay();
 
-      // Real-time Live Edge tracker (<100ms kechikish)
+      // Silliq va barqaror Live Edge sinxronizatsiyasi (qotish va sakrashlarsiz)
       if (syncTimer) clearInterval(syncTimer);
       syncTimer = setInterval(() => {
         if (!videoEl.paused && videoEl.buffered.length > 0) {
           const end = videoEl.buffered.end(videoEl.buffered.length - 1);
           const diff = end - videoEl.currentTime;
-          if (diff > 0.18) {
-            videoEl.currentTime = end - 0.01;
-          } else if (diff > 0.07) {
-            videoEl.playbackRate = 1.15;
+
+          // Faqat juda orqada qolib ketgandagina (masalan, brauzer yashirilib qayta ochilganda) seek qilish
+          if (diff > 1.8) {
+            videoEl.currentTime = end - 0.15;
+          } else if (diff > 0.45) {
+            // Sezdirmasdan tezlashtirish (kadr sakratmasdan)
+            videoEl.playbackRate = 1.1;
+          } else if (diff > 0.25) {
+            videoEl.playbackRate = 1.05;
+          } else if (diff < 0.08) {
+            // Bufer tugab qotmasligi uchun ozgina sekinlashtirish
+            videoEl.playbackRate = 0.95;
           } else {
             videoEl.playbackRate = 1.0;
           }
         }
-      }, 80);
+      }, 250);
 
       const unpause = () => {
         if (videoEl.paused) videoEl.play().catch(() => {});
