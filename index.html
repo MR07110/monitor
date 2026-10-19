@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>MONITOR</title>
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+  <link rel="apple-touch-icon" href="./favicon.svg">
+  <link rel="stylesheet" href="./style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="./mpegts.js"></script>
+</head>
+<body>
+
+  <!-- ORIENTATION NOTIFICATION FOR MOBILE / TABLET -->
+  <div id="orientation-warning" class="orientation-warning hidden">
+    <div class="orient-box">
+      <div class="orient-svg">
+        <svg viewBox="0 0 48 48" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2.5">
+          <rect x="12" y="6" width="24" height="36" rx="4" />
+          <line x1="22" y1="36" x2="26" y2="36" />
+        </svg>
+      </div>
+      <h3>Ekranni gorizontalga o'giring</h3>
+      <p>Kompyuter ekranini qulay va to'liq ko'rish uchun telefoningizni yonboshga (landscape) aylantiring.</p>
+    </div>
+  </div>
+
+  <!-- 1. LOGIN -->
+  <div id="login-view" class="view">
+    <div class="login-container">
+      <!-- MONITOR LOGO -->
+      <div class="logo-wrapper">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" class="app-logo">
+          <circle cx="50" cy="50" r="50" fill="black" />
+          <g fill="white">
+            <rect x="22" y="26" width="56" height="36" rx="3" ry="3" />
+            <rect x="46" y="62" width="8" height="8" />
+            <rect x="36" y="70" width="28" height="4" rx="1.5" ry="1.5" />
+            <rect x="25" y="29" width="50" height="30" fill="black" rx="1" ry="1" />
+          </g>
+        </svg>
+      </div>
+
+      <div class="card">
+        <div class="header">
+          <h1>MONITOR</h1>
+          <p>Xavfsiz jonli ekran oqimi</p>
+        </div>
+
+        <form id="login-form">
+          <div id="login-error" class="error-msg hidden"></div>
+
+          <div class="field">
+            <input type="text" id="username" placeholder="Foydalanuvchi" required autocomplete="username" autocapitalize="none" autocorrect="off">
+          </div>
+
+          <div class="field">
+            <input type="password" id="password" placeholder="Parol" required autocomplete="current-password">
+          </div>
+
+          <div class="field" id="host-field">
+            <input type="text" id="server-host" placeholder="Server domeni (ngrok)">
+          </div>
+
+          <button type="submit" id="submit-btn" class="btn">Kirish</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. TAYMER (10 SONIYA) VA PRE-WARM -->
+  <div id="countdown-view" class="view hidden">
+    <div class="countdown-box">
+      <div id="countdown-num" class="timer-display">10</div>
+      
+      <div class="tip-card">
+        <div class="tip-title">⚡ TO'LIQ EKRAN REJIMI</div>
+        <p class="tip-text">
+          Hozir ekraningiz avtomatik <strong>to'liq ekran (fullscreen)</strong> bo'ladi.<br>
+          Ekranga <strong>2 marta tez bossangiz</strong> fullscreen dan chiqasiz, yana <strong>2 marta tez bossangiz</strong> qayta kirasiz.
+        </p>
+      </div>
+
+      <div class="bar-track">
+        <div id="progress-bar" class="bar-fill"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. SOF EKRAN -->
+  <div id="screen-view" class="view hidden">
+    <video id="screen-video" autoplay playsinline muted></video>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
