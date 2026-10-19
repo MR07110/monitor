@@ -30,8 +30,6 @@
   const loginForm = document.getElementById('login-form');
   const usernameInput = document.getElementById('username');
   const passwordInput = document.getElementById('password');
-  const serverHostInput = document.getElementById('server-host');
-  const hostField = document.getElementById('host-field');
   const submitBtn = document.getElementById('submit-btn');
   const loginError = document.getElementById('login-error');
 
@@ -65,10 +63,6 @@
         }
       }
     } catch (e) {}
-
-    if (serverHostInput && remoteHost) {
-      serverHostInput.value = remoteHost;
-    }
 
     // Bloklanganlikni tekshirish
     try {
@@ -356,11 +350,6 @@
 
     const username = usernameInput.value.trim();
     const password = passwordInput.value;
-
-    if (serverHostInput && serverHostInput.value.trim()) {
-      remoteHost = serverHostInput.value.trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
-      localStorage.setItem('remote_desk_host', remoteHost);
-    }
 
     if (!username || !password) return;
 

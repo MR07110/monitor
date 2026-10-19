@@ -8,8 +8,8 @@ export default function handler(req, res) {
     return res.status(204).end();
   }
 
-  // Vercel Environment Variables: REMOTE_HOST yoki NGROK_DOMAIN
-  const host = process.env.REMOTE_HOST || process.env.NGROK_DOMAIN || '';
+  // Vercel Environment Variable: Faqat NGROK_DOMAIN ishlatiladi
+  const host = process.env.NGROK_DOMAIN || '';
 
   return res.status(200).json({ host });
 }
