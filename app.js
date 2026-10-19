@@ -254,6 +254,14 @@
       videoEl.addEventListener('canplay', triggerPlay, { once: true });
       triggerPlay();
 
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && videoEl && videoEl.buffered.length > 0) {
+          const end = videoEl.buffered.end(videoEl.buffered.length - 1);
+          videoEl.currentTime = Math.max(0, end - 0.1);
+          videoEl.play().catch(() => {});
+        }
+      });
+
       // Silliq va barqaror Live Edge sinxronizatsiyasi (qotish va sakrashlarsiz)
       if (syncTimer) clearInterval(syncTimer);
       syncTimer = setInterval(() => {
