@@ -42,6 +42,10 @@
   const audioIconOff = document.getElementById('audio-icon-off');
   const audioLabel = document.getElementById('audio-label');
 
+  const micBtn = document.getElementById('mic-toggle-btn');
+  const micLabel = document.getElementById('mic-label');
+  let isMicActive = false;
+
   // Xavfsiz xotira (Refresh bo'lsa darhol uziladi)
   let authToken = null;
   let mpegtsPlayer = null;
@@ -165,6 +169,8 @@
   function exitSession(reason = '') {
     authToken = null;
     prewarmStarted = false;
+    isMicActive = false;
+    updateMicUI(false);
 
     if (videoEl) {
       try {
@@ -200,7 +206,7 @@
     exitSession();
   });
 
-  // ================= 8. TELEGRAM DARAJASIDAGI WEBRTC STREAM (VIDEO + REALTIME AUDIO) =================
+  // ================= 8. TELEGRAM DARAJASIDAGI WEBRTC STREAM (VIDEO + 2-WAY AUDIO) =================
   function updateAudioUI(isMuted) {
     if (!audioBtn) return;
     if (isMuted) {
@@ -228,10 +234,39 @@
     }
   }
 
+  function updateMicUI(active) {
+    if (!micBtn) return;
+    if (active) {
+      micBtn.classList.add('active');
+      if (micLabel) micLabel.textContent = 'Gapiryapsiz...';
+    } else {
+      micBtn.classList.remove('active');
+      if (micLabel) micLabel.textContent = 'Gapirish';
+    }
+  }
+
+  async function toggleMic() {
+    if (!videoEl) return;
+    if (typeof videoEl.toggleMic === 'function') {
+      isMicActive = await videoEl.toggleMic();
+    } else if (typeof videoEl.setMicEnabled === 'function') {
+      isMicActive = !isMicActive;
+      videoEl.setMicEnabled(isMicActive);
+    }
+    updateMicUI(isMicActive);
+  }
+
   if (audioBtn) {
     audioBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       toggleAudio();
+    });
+  }
+
+  if (micBtn) {
+    micBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleMic();
     });
   }
 
@@ -244,7 +279,7 @@
     try {
       const streamUrl = getStreamUrl();
       videoEl.mode = 'webrtc,mse';
-      videoEl.media = 'video,audio';
+      videoEl.media = 'video,audio,microphone';
       videoEl.src = streamUrl;
 
       const triggerPlay = () => {
