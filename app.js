@@ -53,6 +53,15 @@
   const menuReconnectBtn = document.getElementById('menu-reconnect-btn');
   const menuLogoutBtn = document.getElementById('menu-logout-btn');
 
+  // 4.1 Splash Overlay Elements
+  const screenSplash = document.getElementById('screen-splash');
+  const splashStatusBadge = document.getElementById('splash-status-badge');
+  const splashDesc = document.getElementById('splash-desc');
+  const splashCancelBtn = document.getElementById('splash-cancel-btn');
+  const stepHandshake = document.getElementById('step-handshake');
+  const stepMedia = document.getElementById('step-media');
+  const stepLive = document.getElementById('step-live');
+
   // 5. Shell Terminal View
   const shellView = document.getElementById('shell-view');
   const shellCwdText = document.getElementById('shell-cwd-text');
@@ -568,8 +577,62 @@
     }
   }
 
+  // ================= 10.1 CHROYLI VISUAL SPLASH SCREEN =================
+  let splashWatchTimer = null;
+
+  function showSplash() {
+    if (!screenSplash) return;
+    screenSplash.classList.remove('fade-out');
+    if (splashStatusBadge) splashStatusBadge.textContent = 'ULANMOQDA';
+    if (splashDesc) splashDesc.textContent = 'Kompyuter bilan xavfsiz apparat oqimi o‘rnatilmoqda...';
+    if (stepHandshake) stepHandshake.className = 'splash-step active';
+    if (stepMedia) stepMedia.className = 'splash-step';
+    if (stepLive) stepLive.className = 'splash-step';
+
+    if (splashWatchTimer) clearInterval(splashWatchTimer);
+
+    // Kadr kelgunicha (infinity) tekshirib turamiz
+    splashWatchTimer = setInterval(() => {
+      const innerVideo = videoEl ? (videoEl.video || (videoEl.querySelector ? videoEl.querySelector('video') : null)) : null;
+      if (innerVideo && (innerVideo.currentTime > 0.05 || (innerVideo.readyState >= 2 && innerVideo.videoWidth > 0))) {
+        onVideoFrameArrived();
+      }
+    }, 100);
+  }
+
+  function hideSplash() {
+    if (splashWatchTimer) {
+      clearInterval(splashWatchTimer);
+      splashWatchTimer = null;
+    }
+    if (!screenSplash) return;
+    screenSplash.classList.add('fade-out');
+  }
+
+  function updateSplashStep(step, text) {
+    if (splashDesc && text) splashDesc.textContent = text;
+    if (step === 2) {
+      if (stepHandshake) stepHandshake.className = 'splash-step done';
+      if (stepMedia) stepMedia.className = 'splash-step active';
+      if (splashStatusBadge) splashStatusBadge.textContent = 'MEDIA QABUL QILINMOQDA';
+    } else if (step === 3) {
+      if (stepHandshake) stepHandshake.className = 'splash-step done';
+      if (stepMedia) stepMedia.className = 'splash-step done';
+      if (stepLive) stepLive.className = 'splash-step active';
+      if (splashStatusBadge) splashStatusBadge.textContent = 'JONLI EFIR TAYYOR';
+    }
+  }
+
+  function onVideoFrameArrived() {
+    updateSplashStep(3, 'Tasvir va audio qabul qilindi. Jonli efir boshlandi!');
+    setTimeout(() => {
+      hideSplash();
+    }, 280);
+  }
+
   function reconnectStream() {
     stopStream();
+    showSplash();
     setTimeout(() => {
       startStream();
       showBottombar();
@@ -606,12 +669,26 @@
       triggerPlay();
       window.addEventListener('click', triggerPlay, { once: true });
       window.addEventListener('touchstart', triggerPlay, { once: true });
+
+      const innerVideo = videoEl.video || (videoEl.querySelector ? videoEl.querySelector('video') : null);
+      if (innerVideo) {
+        const onFrame = () => {
+          if (innerVideo.currentTime > 0.05 || (innerVideo.readyState >= 2 && innerVideo.videoWidth > 0)) {
+            onVideoFrameArrived();
+            innerVideo.removeEventListener('timeupdate', onFrame);
+            innerVideo.removeEventListener('playing', onFrame);
+          }
+        };
+        innerVideo.addEventListener('timeupdate', onFrame);
+        innerVideo.addEventListener('playing', onFrame);
+      }
     } catch (err) {
       console.warn('Video ulanish xatosi:', err.message);
     }
   }
 
   function stopStream() {
+    hideSplash();
     prewarmStarted = false;
     isMicActive = false;
     updateMicUI(false);
@@ -631,6 +708,7 @@
       clearInterval(countdownTimer);
       countdownTimer = null;
     }
+    showSplash();
     showView('screen-view');
     startStream();
     try {
@@ -1047,6 +1125,28 @@
   if (logoutBtn) {
     logoutBtn.addEventListener('click', () => {
       logoutSession();
+    });
+  }
+
+  // Splash Bekor qilish tugmasi
+  if (splashCancelBtn) {
+    splashCancelBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      stopStream();
+      showView('welcome-view');
+    });
+  }
+
+  // WebRTC bosqichlarini splashda aks ettirish
+  if (videoEl) {
+    videoEl.addEventListener('webrtc-handshake', () => {
+      updateSplashStep(2, 'Apparat H.264 video va miks audio kodi ochilmoqda...');
+    });
+    videoEl.addEventListener('webrtc-track', () => {
+      updateSplashStep(2, 'Ovoz va tasvir treklari qabul qilindi...');
+    });
+    videoEl.addEventListener('webrtc-connected', () => {
+      updateSplashStep(3, 'Lokal apparat oqimi ulandi, birinchi kadr kutilmoqda...');
     });
   }
 

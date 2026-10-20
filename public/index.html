@@ -204,6 +204,59 @@
 
   <!-- 4. SOF EKRAN -->
   <div id="screen-view" class="view hidden">
+    <!-- 4.1 CHROYLI VISUAL SPLASH OVERLAY (ULANGUNCHA CHEKSIZ) -->
+    <div id="screen-splash" class="screen-splash">
+      <div class="splash-card">
+        <!-- ANIMATED RADAR / PULSE SPINNER -->
+        <div class="splash-animation">
+          <div class="splash-ring ring-1"></div>
+          <div class="splash-ring ring-2"></div>
+          <div class="splash-ring ring-3"></div>
+          <div class="splash-core">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+          </div>
+        </div>
+
+        <div class="splash-content">
+          <div class="splash-badge">
+            <span class="splash-dot"></span>
+            <span id="splash-status-badge">ULANMOQDA</span>
+          </div>
+          <h2 class="splash-title">Jonli Ekran Ulanishi</h2>
+          <p id="splash-desc" class="splash-desc">Kompyuter bilan xavfsiz apparat oqimi o‘rnatilmoqda...</p>
+
+          <!-- JONLI BOSQICHLAR KO'RSATGICHI -->
+          <div class="splash-steps">
+            <div id="step-handshake" class="splash-step active">
+              <span class="step-indicator"></span>
+              <span>1. WebRTC xavfsiz kanali</span>
+            </div>
+            <div id="step-media" class="splash-step">
+              <span class="step-indicator"></span>
+              <span>2. Apparat H.264 & Audio</span>
+            </div>
+            <div id="step-live" class="splash-step">
+              <span class="step-indicator"></span>
+              <span>3. Jonli efir (0 ms kechikish)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ORQAGA QAYTISH TUGMASI -->
+        <button id="splash-cancel-btn" type="button" class="splash-cancel-btn">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+          Bekor qilish
+        </button>
+      </div>
+    </div>
+
     <video-rtc id="screen-video"></video-rtc>
 
     <!-- ZAMONAVIY FLOATING BOTTOM BAR -->

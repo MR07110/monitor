@@ -566,6 +566,7 @@ class VideoRTC extends HTMLElement {
                 });
             }
             this.play();
+            this.dispatchEvent(new CustomEvent('webrtc-track', { detail: { kind: ev.track ? ev.track.kind : 'unknown' } }));
             this.pcState = WebSocket.OPEN;
         };
 
@@ -626,6 +627,7 @@ class VideoRTC extends HTMLElement {
                     try {
                         await pc.setRemoteDescription({type: 'answer', sdp: msg.value});
                         isRemoteDescSet = true;
+                        this.dispatchEvent(new CustomEvent('webrtc-handshake'));
                         while (pendingCandidates.length > 0) {
                             const cand = pendingCandidates.shift();
                             pc.addIceCandidate({candidate: cand, sdpMid: '0'}).catch(er => {
