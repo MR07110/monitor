@@ -64,6 +64,18 @@
   const ghostHidden = document.getElementById('ghost-hidden');
   const ghostSuggestion = document.getElementById('ghost-suggestion');
 
+  // 6. Original PTY Terminal View
+  const modePtyBtn = document.getElementById('mode-pty-btn');
+  const ptyView = document.getElementById('pty-view');
+  const ptyStatusText = document.getElementById('pty-status-text');
+  const ptyToScreenBtn = document.getElementById('pty-to-screen-btn');
+  const ptyToShellBtn = document.getElementById('pty-to-shell-btn');
+  const ptyToMenuBtn = document.getElementById('pty-to-menu-btn');
+  const ptyReconnectBtn = document.getElementById('pty-reconnect-btn');
+  const ptyLogoutBtn = document.getElementById('pty-logout-btn');
+  const ptyTerminalContainer = document.getElementById('pty-terminal-container');
+  const ptyVirtualKeys = document.getElementById('pty-virtual-keys');
+
   // ================= 4. HOLAT (STATE) =================
   let authToken = localStorage.getItem('desktop_auth_token') || null;
   let currentUsername = localStorage.getItem('desktop_username') || '';
@@ -113,7 +125,7 @@
 
   // ================= 5. VIEW BOSHQARUVI =================
   function showView(viewId) {
-    const views = [splashView, loginView, welcomeView, countdownView, screenView, shellView];
+    const views = [splashView, loginView, welcomeView, countdownView, screenView, shellView, ptyView];
     views.forEach(v => {
       if (v) {
         if (v.id === viewId) {
@@ -441,6 +453,10 @@
     localStorage.removeItem('desktop_auth_token');
     localStorage.removeItem('desktop_username');
     stopStream();
+    if (ptyWs) {
+      try { ptyWs.close(); } catch (_) {}
+      ptyWs = null;
+    }
 
     if (document.fullscreenElement) {
       document.exitFullscreen().catch(() => {});
@@ -1251,6 +1267,204 @@
           submitBtn.textContent = 'Kirish';
         }
       }
+    });
+  }
+
+  // ================= 15.1 ORIGINAL PTY INTERAKTIV TERMINAL (1:1) =================
+  let ptyTerm = null;
+  let ptyFitAddon = null;
+  let ptyWs = null;
+
+  function getPtyStreamUrl() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+    return `${protocol}//${getHost()}/pty-stream${token}`;
+  }
+
+  function initPtyTerminal() {
+    if (!ptyTerminalContainer) return;
+
+    if (!ptyTerm) {
+      if (typeof Terminal === 'undefined') {
+        console.error('xterm.js yuklanmadi');
+        return;
+      }
+
+      ptyTerm = new Terminal({
+        cursorBlink: true,
+        cursorStyle: 'block',
+        fontFamily: "'JetBrains Mono', 'Fira Code', 'Courier New', monospace",
+        fontSize: window.innerWidth < 768 ? 12 : 14,
+        letterSpacing: 0,
+        lineHeight: 1.15,
+        theme: {
+          background: '#000000',
+          foreground: '#e6e6e6',
+          cursor: '#00ff66',
+          cursorAccent: '#000000',
+          selectionBackground: 'rgba(0, 255, 102, 0.3)',
+          black: '#000000',
+          red: '#ff5555',
+          green: '#50fa7b',
+          yellow: '#f1fa8c',
+          blue: '#bd93f9',
+          magenta: '#ff79c6',
+          cyan: '#8be9fd',
+          white: '#bfbfbf',
+          brightBlack: '#4d4d4d',
+          brightRed: '#ff6e67',
+          brightGreen: '#5af78e',
+          brightYellow: '#f4f99d',
+          brightBlue: '#caa9fa',
+          brightMagenta: '#ff92d0',
+          brightCyan: '#9aedfe',
+          brightWhite: '#e6e6e6'
+        },
+        convertEol: true,
+        scrollback: 10000
+      });
+
+      if (typeof FitAddon !== 'undefined' && FitAddon.FitAddon) {
+        ptyFitAddon = new FitAddon.FitAddon();
+        ptyTerm.loadAddon(ptyFitAddon);
+      }
+
+      ptyTerm.open(ptyTerminalContainer);
+
+      ptyTerm.onData((data) => {
+        if (ptyWs && ptyWs.readyState === WebSocket.OPEN) {
+          ptyWs.send(data);
+        }
+      });
+
+      window.addEventListener('resize', () => {
+        if (ptyFitAddon && ptyView && !ptyView.classList.contains('hidden')) {
+          try {
+            ptyFitAddon.fit();
+            if (ptyWs && ptyWs.readyState === WebSocket.OPEN) {
+              ptyWs.send(`\x01${ptyTerm.cols},${ptyTerm.rows}`);
+            }
+          } catch (_) {}
+        }
+      });
+    }
+
+    connectPtyWs();
+
+    setTimeout(() => {
+      if (ptyFitAddon) {
+        try {
+          ptyFitAddon.fit();
+          if (ptyWs && ptyWs.readyState === WebSocket.OPEN) {
+            ptyWs.send(`\x01${ptyTerm.cols},${ptyTerm.rows}`);
+          }
+        } catch (_) {}
+      }
+      if (ptyTerm) ptyTerm.focus();
+    }, 150);
+  }
+
+  function connectPtyWs() {
+    if (ptyWs) {
+      try { ptyWs.close(); } catch (_) {}
+      ptyWs = null;
+    }
+
+    if (ptyStatusText) {
+      ptyStatusText.textContent = 'Ulanmoqda...';
+      ptyStatusText.style.color = '#888';
+    }
+
+    try {
+      ptyWs = new WebSocket(getPtyStreamUrl());
+
+      ptyWs.onopen = () => {
+        if (ptyStatusText) {
+          ptyStatusText.textContent = 'Ulangan (Online)';
+          ptyStatusText.style.color = 'var(--accent-green)';
+        }
+        if (ptyFitAddon) {
+          try {
+            ptyFitAddon.fit();
+            ptyWs.send(`\x01${ptyTerm.cols},${ptyTerm.rows}`);
+          } catch (_) {}
+        }
+        if (ptyTerm) ptyTerm.focus();
+      };
+
+      ptyWs.onmessage = (ev) => {
+        if (ptyTerm) {
+          ptyTerm.write(ev.data);
+        }
+      };
+
+      ptyWs.onerror = () => {
+        if (ptyStatusText) {
+          ptyStatusText.textContent = 'Xatolik';
+          ptyStatusText.style.color = '#ff5555';
+        }
+      };
+
+      ptyWs.onclose = () => {
+        if (ptyStatusText) {
+          ptyStatusText.textContent = 'Uzildi (Offline)';
+          ptyStatusText.style.color = '#888';
+        }
+      };
+    } catch (e) {
+      console.error('PTY WS ulanish xatosi:', e);
+    }
+  }
+
+  // Menyu -> Original PTY Terminal
+  if (modePtyBtn) {
+    modePtyBtn.addEventListener('click', () => {
+      showView('pty-view');
+      initPtyTerminal();
+    });
+  }
+
+  // PTY navigatsiya tugmalari
+  if (ptyToScreenBtn) {
+    ptyToScreenBtn.addEventListener('click', () => {
+      enterScreenView();
+    });
+  }
+
+  if (ptyToShellBtn) {
+    ptyToShellBtn.addEventListener('click', () => {
+      showView('shell-view');
+    });
+  }
+
+  if (ptyToMenuBtn) {
+    ptyToMenuBtn.addEventListener('click', () => {
+      showView('welcome-view');
+    });
+  }
+
+  if (ptyReconnectBtn) {
+    ptyReconnectBtn.addEventListener('click', () => {
+      connectPtyWs();
+    });
+  }
+
+  if (ptyLogoutBtn) {
+    ptyLogoutBtn.addEventListener('click', () => {
+      logoutSession();
+    });
+  }
+
+  // Virtual klaviatura tugmalari (mobil / planshet uchun qulaylik)
+  if (ptyVirtualKeys) {
+    ptyVirtualKeys.addEventListener('click', (e) => {
+      const btn = e.target.closest('.pty-key-btn');
+      if (!btn) return;
+      const key = btn.getAttribute('data-key');
+      if (key && ptyWs && ptyWs.readyState === WebSocket.OPEN) {
+        ptyWs.send(key);
+      }
+      if (ptyTerm) ptyTerm.focus();
     });
   }
 

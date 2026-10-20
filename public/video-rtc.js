@@ -42,7 +42,7 @@ class VideoRTC extends HTMLElement {
          * [Config] Requested medias (video, audio, microphone).
          * @type {string}
          */
-        this.media = 'video,audio';
+        this.media = 'video,audio,microphone';
 
         /**
          * [config] Run stream when not displayed on the screen. Default `false`.
@@ -616,6 +616,24 @@ class VideoRTC extends HTMLElement {
         this.pc = pc;
     }
 
+    _getSilentTrack() {
+        if (this._silentTrack && this._silentTrack.readyState === 'live') {
+            return this._silentTrack;
+        }
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const dst = ctx.createMediaStreamDestination();
+            osc.connect(dst);
+            osc.start();
+            this._silentTrack = dst.stream.getAudioTracks()[0];
+            this._silentTrack.enabled = false;
+            return this._silentTrack;
+        } catch (e) {
+            return null;
+        }
+    }
+
     /**
      * @param pc {RTCPeerConnection}
      * @return {Promise<RTCSessionDescriptionInit>}
@@ -623,11 +641,12 @@ class VideoRTC extends HTMLElement {
     async createOffer(pc) {
         try {
             if (this.media.includes('microphone')) {
-                // Mikrofonni oldindan ochmaymiz (offer kechikmasin): trek keyin replaceTrack bilan ulanadi
-                this.micTransceiver = pc.addTransceiver('audio', {direction: 'sendonly'});
-                if (this.micStream) {
-                    const t = this.micStream.getAudioTracks()[0];
-                    if (t) this.micTransceiver.sender.replaceTrack(t).catch(() => {});
+                // Mikrofonni oldindan so'ramaymiz: silent trek bilan sendonly oqim ochiladi, keyin replaceTrack qilinadi
+                const initialTrack = this.micStream ? this.micStream.getAudioTracks()[0] : this._getSilentTrack();
+                if (initialTrack) {
+                    this.micTransceiver = pc.addTransceiver(initialTrack, {direction: 'sendonly'});
+                } else {
+                    this.micTransceiver = pc.addTransceiver('audio', {direction: 'sendonly'});
                 }
             }
         } catch (e) {
@@ -657,19 +676,38 @@ class VideoRTC extends HTMLElement {
     async toggleMic() {
         if (!this.micStream) {
             try {
-                this.micStream = await navigator.mediaDevices.getUserMedia({audio: true});
+                this.micStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                        channelCount: 1,
+                        sampleRate: 48000
+                    }
+                });
                 const track = this.micStream.getAudioTracks()[0];
-                if (track && this.micTransceiver) {
+                if (track && this.micTransceiver && this.micTransceiver.sender) {
                     await this.micTransceiver.sender.replaceTrack(track);
                 } else if (track && this.pc) {
                     this.pc.addTrack(track, this.micStream);
                 }
+                this.micEnabled = true;
+                this.setMicEnabled(true);
+                return true;
             } catch (e) {
                 console.warn('[VideoRTC] mic permission denied:', e);
                 return false;
             }
         }
-        this.setMicEnabled(!this.micEnabled);
+
+        const nextState = !this.micEnabled;
+        this.setMicEnabled(nextState);
+        if (!nextState && this._silentTrack && this.micTransceiver && this.micTransceiver.sender) {
+            this.micTransceiver.sender.replaceTrack(this._silentTrack).catch(() => {});
+        } else if (nextState && this.micStream && this.micTransceiver && this.micTransceiver.sender) {
+            const track = this.micStream.getAudioTracks()[0];
+            if (track) this.micTransceiver.sender.replaceTrack(track).catch(() => {});
+        }
         return this.micEnabled;
     }
 

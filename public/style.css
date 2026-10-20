@@ -1004,3 +1004,89 @@ video-rtc,
     height: 40px;
   }
 }
+
+/* ================= 8. ORIGINAL PTY TERMINAL VIEW ================= */
+#pty-view {
+  background: #000000;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.pty-tag {
+  color: var(--accent-green);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.pty-status {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: 6px;
+}
+
+.pty-terminal-wrapper {
+  flex: 1;
+  width: 100%;
+  height: calc(100% - 42px - 38px);
+  position: relative;
+  background: #000000;
+  overflow: hidden;
+  padding: 6px 8px;
+}
+
+.pty-terminal-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.pty-terminal-container .xterm {
+  height: 100%;
+  padding: 0;
+}
+
+.pty-terminal-container .xterm-viewport {
+  background-color: #000000 !important;
+}
+
+.pty-virtual-keys {
+  height: 38px;
+  min-height: 38px;
+  background: #0c0c0c;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  overflow-x: auto;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+  z-index: 10;
+}
+
+.pty-key-btn {
+  background: #161616;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  color: var(--text-main);
+  padding: 5px 9px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  user-select: none;
+  transition: all 0.12s ease;
+}
+
+.pty-key-btn:active {
+  background: var(--accent-green);
+  color: #000000;
+  border-color: var(--accent-green);
+}
