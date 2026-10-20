@@ -342,3 +342,273 @@ video-rtc,
 .ctrl-svg {
   display: block;
 }
+
+/* ================= 6. WELCOME / MODE SELECTION MENU ================= */
+.welcome-container {
+  width: 100%;
+  max-width: 480px;
+  padding: 24px;
+}
+
+.welcome-card {
+  background: #0d0d0d;
+  border: 1px solid #222222;
+  border-radius: 12px;
+  padding: 32px 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.welcome-header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.welcome-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: rgba(34, 197, 94, 0.12);
+  color: #22c55e;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+}
+
+.welcome-header h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 6px;
+  letter-spacing: -0.5px;
+}
+
+.welcome-header p {
+  font-size: 14px;
+  color: #888888;
+}
+
+.mode-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.mode-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: #141414;
+  border: 1px solid #262626;
+  border-radius: 8px;
+  padding: 16px 18px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.mode-card:hover {
+  background: #1c1c1c;
+  border-color: #555555;
+  transform: translateY(-2px);
+}
+
+.mode-card:active {
+  transform: translateY(0);
+}
+
+.mode-icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.mode-info {
+  flex: 1;
+}
+
+.mode-info h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 4px;
+}
+
+.mode-info p {
+  font-size: 12px;
+  color: #888888;
+  line-height: 1.4;
+}
+
+.mode-arrow {
+  color: #666666;
+  font-size: 18px;
+  font-weight: 700;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.mode-card:hover .mode-arrow {
+  color: #ffffff;
+  transform: translateX(4px);
+}
+
+.logout-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  background: transparent;
+  color: #777777;
+  border: 1px solid #222222;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.logout-link:hover {
+  background: #1a1a1a;
+  color: #ff4d4f;
+  border-color: #ff4d4f;
+}
+
+/* ================= 7. SHELL TERMINAL VIEW ================= */
+#shell-view {
+  background: #000000;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+  padding: 0;
+}
+
+.shell-header {
+  height: 44px;
+  background: #0a0a0a;
+  border-bottom: 1px solid #1a1a1a;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  user-select: none;
+}
+
+.shell-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: #888888;
+}
+
+.shell-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00ff66;
+  box-shadow: 0 0 8px rgba(0, 255, 102, 0.6);
+}
+
+.shell-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.shell-action-btn {
+  background: #161616;
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+  color: #cccccc;
+  padding: 4px 10px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.shell-action-btn:hover {
+  background: #252525;
+  color: #ffffff;
+  border-color: #444444;
+}
+
+.terminal-screen {
+  flex: 1;
+  background: #000000;
+  padding: 16px 20px;
+  overflow-y: auto;
+  font-family: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  cursor: text;
+}
+
+.terminal-history {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.term-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.term-cmd-line {
+  display: flex;
+  align-items: baseline;
+  word-break: break-all;
+}
+
+.prompt-tag {
+  color: #00ff66;
+  font-weight: 700;
+  margin-right: 4px;
+}
+
+.prompt-arrow {
+  color: #888888;
+  margin-right: 8px;
+}
+
+.term-cmd-text {
+  color: #ffffff;
+}
+
+.term-output {
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: #d4d4d4;
+  margin-bottom: 6px;
+  font-family: inherit;
+}
+
+.term-output.error {
+  color: #ff5555;
+}
+
+.terminal-active-line {
+  display: flex;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.terminal-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 14px;
+  padding: 0;
+  margin: 0;
+  caret-color: #00ff66;
+}

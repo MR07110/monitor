@@ -8,7 +8,11 @@
   }
 
   // ================= 2. DEVTOOLS & KONSOL HIMOYA =================
-  document.addEventListener('contextmenu', e => e.preventDefault());
+  document.addEventListener('contextmenu', e => {
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+    e.preventDefault();
+  });
+
   document.addEventListener('keydown', e => {
     if (
       e.key === 'F12' ||
@@ -22,38 +26,95 @@
   });
 
   // ================= 3. DOM ELEMENTLAR =================
+  // 1. Login View
   const loginView = document.getElementById('login-view');
-  const countdownView = document.getElementById('countdown-view');
-  const screenView = document.getElementById('screen-view');
-  const orientationWarning = document.getElementById('orientation-warning');
-
   const loginForm = document.getElementById('login-form');
   const usernameInput = document.getElementById('username');
   const passwordInput = document.getElementById('password');
   const submitBtn = document.getElementById('submit-btn');
   const loginError = document.getElementById('login-error');
 
+  // 2. Welcome View
+  const welcomeView = document.getElementById('welcome-view');
+  const welcomeUser = document.getElementById('welcome-user');
+  const modeScreenBtn = document.getElementById('mode-screen-btn');
+  const modeShellBtn = document.getElementById('mode-shell-btn');
+  const logoutBtn = document.getElementById('logout-btn');
+
+  // 3. Countdown View
+  const countdownView = document.getElementById('countdown-view');
   const countdownNum = document.getElementById('countdown-num');
   const progressBar = document.getElementById('progress-bar');
-  const videoEl = document.getElementById('screen-video');
 
+  // 4. Screen View
+  const screenView = document.getElementById('screen-view');
+  const videoEl = document.getElementById('screen-video');
   const audioBtn = document.getElementById('audio-toggle-btn');
   const audioIconOn = document.getElementById('audio-icon-on');
   const audioIconOff = document.getElementById('audio-icon-off');
   const audioLabel = document.getElementById('audio-label');
-
   const micBtn = document.getElementById('mic-toggle-btn');
   const micLabel = document.getElementById('mic-label');
-  let isMicActive = false;
+  const switchToShellBtn = document.getElementById('switch-to-shell-btn');
+  const screenToMenuBtn = document.getElementById('screen-to-menu-btn');
+  const orientationWarning = document.getElementById('orientation-warning');
 
-  // Xavfsiz xotira (Refresh bo'lsa darhol uziladi)
-  let authToken = null;
-  let mpegtsPlayer = null;
+  // 5. Shell Terminal View
+  const shellView = document.getElementById('shell-view');
+  const shellCwdText = document.getElementById('shell-cwd-text');
+  const shellToScreenBtn = document.getElementById('shell-to-screen-btn');
+  const shellToMenuBtn = document.getElementById('shell-to-menu-btn');
+  const shellLogoutBtn = document.getElementById('shell-logout-btn');
+  const terminalScreen = document.getElementById('terminal-screen');
+  const terminalHistory = document.getElementById('terminal-history');
+  const terminalInput = document.getElementById('terminal-input');
+
+  // ================= 4. HOLAT (STATE) =================
+  let authToken = localStorage.getItem('desktop_auth_token') || null;
+  let currentUsername = localStorage.getItem('desktop_username') || '';
   let remoteHost = localStorage.getItem('remote_desk_host') || '';
-  let syncTimer = null;
+  let currentCwd = '~';
+  const cmdHistory = [];
+  let cmdIndex = -1;
+  let isMicActive = false;
   let prewarmStarted = false;
+  let countdownTimer = null;
+  let blockCountdownTimer = null;
 
-  // ================= 4. KONFIGURATSIYA =================
+  // ================= 5. VIEW BOSHQARUVI =================
+  function showView(viewId) {
+    const views = [loginView, welcomeView, countdownView, screenView, shellView];
+    views.forEach(v => {
+      if (v) {
+        if (v.id === viewId) {
+          v.classList.remove('hidden');
+        } else {
+          v.classList.add('hidden');
+        }
+      }
+    });
+
+    if (viewId !== 'screen-view' && viewId !== 'countdown-view') {
+      stopStream();
+    }
+
+    if (viewId === 'shell-view') {
+      setTimeout(() => {
+        if (terminalInput) terminalInput.focus();
+      }, 60);
+    }
+
+    checkOrientation();
+  }
+
+  function showWelcomeView(username) {
+    if (welcomeUser) {
+      welcomeUser.textContent = username ? `MONITOR (${username})` : 'MONITOR';
+    }
+    showView('welcome-view');
+  }
+
+  // ================= 6. KONFIGURATSIYA VA AVTORIZATSIYA TEKSHIRUVI =================
   async function initConfig() {
     const params = new URLSearchParams(window.location.search);
     const qHost = params.get('host') || params.get('h');
@@ -82,9 +143,40 @@
         const blockData = await blockRes.json();
         if (blockData.blocked && blockData.retryAfterSeconds) {
           startBlockCountdown(blockData.retryAfterSeconds);
+          showView('login-view');
+          return;
         }
       }
     } catch (e) {}
+
+    // Avtorizatsiyani tekshirish (Foydalanuvchi doimo qayta kiritmasligi uchun)
+    const savedToken = localStorage.getItem('desktop_auth_token');
+    if (savedToken) {
+      try {
+        const authRes = await fetch(getApiUrl('/api/check-auth'), {
+          headers: {
+            'Authorization': `Bearer ${savedToken}`,
+            'ngrok-skip-browser-warning': 'true'
+          },
+          credentials: 'include'
+        });
+        if (authRes.ok) {
+          const authData = await authRes.json();
+          if (authData.authenticated) {
+            authToken = authData.token || savedToken;
+            currentUsername = authData.username || localStorage.getItem('desktop_username') || 'muhamad';
+            showWelcomeView(currentUsername);
+            return;
+          }
+        }
+      } catch (e) {}
+
+      // Agar sessiya serverda tugagan bo'lsa
+      localStorage.removeItem('desktop_auth_token');
+      authToken = null;
+    }
+
+    showView('login-view');
   }
 
   function getHost() {
@@ -107,11 +199,12 @@
     return `${protocol}//${getHost()}/video-stream${token}`;
   }
 
-  // ================= 5. ORIENTATSIYA NAZORATI (MOBILE & TABLET) =================
+  // ================= 7. ORIENTATSIYA NAZORATI =================
   function checkOrientation() {
+    if (!orientationWarning) return;
     const isPortrait = window.innerHeight > window.innerWidth;
     const isMobileOrTablet = window.innerWidth <= 1024 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    const isStreaming = !screenView.classList.contains('hidden');
+    const isStreaming = screenView && !screenView.classList.contains('hidden');
 
     if (isStreaming && isPortrait && isMobileOrTablet) {
       orientationWarning.classList.remove('hidden');
@@ -125,7 +218,7 @@
     setTimeout(checkOrientation, 200);
   });
 
-  // ================= 6. TO'LIQ EKRAN (FULLSCREEN TOGGLE) =================
+  // ================= 8. FULLSCREEN TOGGLE =================
   function toggleFullscreen(forceOpen = false) {
     const doc = document;
     const isFull = doc.fullscreenElement || doc.webkitFullscreenElement;
@@ -135,7 +228,7 @@
         doc.documentElement.requestFullscreen().catch(() => {});
       } else if (doc.documentElement.webkitRequestFullscreen) {
         doc.documentElement.webkitRequestFullscreen();
-      } else if (videoEl.webkitEnterFullscreen) {
+      } else if (videoEl && videoEl.webkitEnterFullscreen) {
         videoEl.webkitEnterFullscreen();
       }
     } else {
@@ -147,66 +240,62 @@
     }
   }
 
-  // Desktop: Ekranni 2 marta tez bosish
-  videoEl.addEventListener('dblclick', (e) => {
-    e.preventDefault();
-    toggleFullscreen();
-  });
-
-  // Mobile / Tablet: Ekranga 2 marta tez tegish (Double Tap)
-  let lastTapTime = 0;
-  videoEl.addEventListener('touchend', (e) => {
-    const now = Date.now();
-    const diff = now - lastTapTime;
-    if (diff < 350 && diff > 0) {
+  if (videoEl) {
+    videoEl.addEventListener('dblclick', (e) => {
       e.preventDefault();
       toggleFullscreen();
+    });
+
+    let lastTapTime = 0;
+    videoEl.addEventListener('touchend', (e) => {
+      const now = Date.now();
+      const diff = now - lastTapTime;
+      if (diff < 350 && diff > 0) {
+        e.preventDefault();
+        toggleFullscreen();
+      }
+      lastTapTime = now;
+    });
+  }
+
+  // ================= 9. LOGOUT (TIZIMDAN CHIQISH) =================
+  async function logoutSession(reason = '') {
+    if (countdownTimer) {
+      clearInterval(countdownTimer);
+      countdownTimer = null;
     }
-    lastTapTime = now;
-  });
 
-  // ================= 7. CHIQIB KETISH (KIRISH QIYIN, CHIQISH OSON) =================
-  function exitSession(reason = '') {
-    authToken = null;
-    prewarmStarted = false;
-    isMicActive = false;
-    updateMicUI(false);
-
-    if (videoEl) {
+    if (authToken) {
       try {
-        if (typeof videoEl.ondisconnect === 'function') {
-          videoEl.ondisconnect();
-        }
-        videoEl.src = '';
+        await fetch(getApiUrl('/api/logout'), {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'ngrok-skip-browser-warning': 'true'
+          },
+          credentials: 'include'
+        });
       } catch (e) {}
     }
 
-    orientationWarning.classList.add('hidden');
-    screenView.classList.add('hidden');
-    countdownView.classList.add('hidden');
-    loginView.classList.remove('hidden');
+    authToken = null;
+    localStorage.removeItem('desktop_auth_token');
+    localStorage.removeItem('desktop_username');
+    stopStream();
 
     if (document.fullscreenElement) {
       document.exitFullscreen().catch(() => {});
     }
 
-    if (reason) {
+    showView('login-view');
+
+    if (reason && loginError) {
       loginError.textContent = reason;
       loginError.classList.remove('hidden');
     }
   }
 
-  // Tarmoq uzilishi bilan darhol chiqib ketish
-  window.addEventListener('offline', () => {
-    exitSession('Internet aloqasi uzildi');
-  });
-
-  // Sahifadan chiqilganda darhol chiqish
-  window.addEventListener('pagehide', () => {
-    exitSession();
-  });
-
-  // ================= 8. TELEGRAM DARAJASIDAGI WEBRTC STREAM (VIDEO + 2-WAY AUDIO) =================
+  // ================= 10. WEBRTC STREAM & AUDIO =================
   function updateAudioUI(isMuted) {
     if (!audioBtn) return;
     if (isMuted) {
@@ -271,10 +360,8 @@
   }
 
   function startStream() {
-    if (prewarmStarted) return;
+    if (prewarmStarted || !videoEl) return;
     prewarmStarted = true;
-
-    if (!videoEl) return;
 
     try {
       const streamUrl = getStreamUrl();
@@ -287,12 +374,10 @@
           const innerVideo = videoEl.video || (videoEl.querySelector ? videoEl.querySelector('video') : null);
           if (innerVideo) {
             innerVideo.playsInline = true;
-            // Avval unmuted (ovozli) rejimda o'ynatib ko'ramiz
             innerVideo.muted = false;
             innerVideo.play().then(() => {
               updateAudioUI(false);
             }).catch(() => {
-              // Brauzer avtomatik ovozni cheklasa, muted holatda o'ynatib tugmani ko'rsatamiz
               innerVideo.muted = true;
               innerVideo.play().catch(() => {});
               updateAudioUI(true);
@@ -305,46 +390,324 @@
       window.addEventListener('click', triggerPlay, { once: true });
       window.addEventListener('touchstart', triggerPlay, { once: true });
     } catch (err) {
-      exitSession('Video ulanish xatosi: ' + err.message);
+      console.warn('Video ulanish xatosi:', err.message);
     }
   }
 
-  // ================= 9. 10 SONIYALIK TAYMER (2S QOLGANDA PRE-WARM) =================
-  function startCountdown(seconds = 10) {
-    loginView.classList.add('hidden');
-    countdownView.classList.remove('hidden');
-    screenView.classList.remove('hidden'); // Orqa fonda tayyorlab turish
-
+  function stopStream() {
     prewarmStarted = false;
-    let remain = seconds;
-    countdownNum.textContent = remain;
-    progressBar.style.width = '100%';
+    isMicActive = false;
+    updateMicUI(false);
 
-    const timer = setInterval(() => {
+    if (videoEl) {
+      try {
+        if (typeof videoEl.ondisconnect === 'function') {
+          videoEl.ondisconnect();
+        }
+      } catch (e) {}
+    }
+  }
+
+  // ================= 11. TAYMER & SCREEN REJIMIGA KIRISH =================
+  function startCountdown(seconds = 3) {
+    if (countdownTimer) clearInterval(countdownTimer);
+    showView('countdown-view');
+    prewarmStarted = false;
+
+    let remain = seconds;
+    if (countdownNum) countdownNum.textContent = remain;
+    if (progressBar) progressBar.style.width = '100%';
+
+    countdownTimer = setInterval(() => {
       remain -= 1;
 
-      // 2 soniya qolganda orqa fonda kamerani/videoni yoqib buferlash
-      if (remain <= 2 && !prewarmStarted) {
+      if (remain <= 1 && !prewarmStarted) {
         startStream();
       }
 
       if (remain <= 0) {
-        clearInterval(timer);
-        countdownView.classList.add('hidden');
-        screenView.classList.remove('hidden');
-
-        // Avtomatik to'liq ekran (fullscreen) va orientatsiya tekshiruvi
+        clearInterval(countdownTimer);
+        countdownTimer = null;
+        showView('screen-view');
+        startStream();
         toggleFullscreen(true);
-        checkOrientation();
       } else {
-        countdownNum.textContent = remain;
-        progressBar.style.width = `${(remain / seconds) * 100}%`;
+        if (countdownNum) countdownNum.textContent = remain;
+        if (progressBar) progressBar.style.width = `${(remain / seconds) * 100}%`;
       }
     }, 1000);
   }
 
-  // ================= 10. BLOK TAYMERI =================
-  let blockCountdownTimer = null;
+  // ================= 12. SHELL TERMINAL BOSHQARUVI =================
+  function updateCwdUI() {
+    if (!shellCwdText) return;
+    const home = '/home/muhamad';
+    let display = currentCwd;
+    if (display === home) {
+      display = '~';
+    } else if (display.startsWith(home + '/')) {
+      display = '~' + display.slice(home.length);
+    }
+    shellCwdText.textContent = display;
+  }
+
+  function escapeHtml(text) {
+    if (!text) return '';
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function ansiToHtml(str) {
+    if (!str) return '';
+    const ansiMap = {
+      '30': 'color: #4e4e4e',
+      '31': 'color: #ff5555',
+      '32': 'color: #50fa7b',
+      '33': 'color: #f1fa8c',
+      '34': 'color: #bd93f9',
+      '35': 'color: #ff79c6',
+      '36': 'color: #8be9fd',
+      '37': 'color: #f8f8f2',
+      '90': 'color: #797979',
+      '91': 'color: #ff6e6e',
+      '92': 'color: #69ff94',
+      '93': 'color: #ffffa5',
+      '94': 'color: #d6acff',
+      '95': 'color: #ff92df',
+      '96': 'color: #a4ffff',
+      '97': 'color: #ffffff',
+      '1': 'font-weight: bold',
+      '2': 'opacity: 0.7',
+      '4': 'text-decoration: underline'
+    };
+
+    let escaped = escapeHtml(str);
+    return escaped.replace(/\x1b\[([0-9;]+)m/g, (match, codes) => {
+      if (codes === '0' || codes === '00') return '</span>';
+      const parts = codes.split(';');
+      const styles = [];
+      for (const p of parts) {
+        if (ansiMap[p]) styles.push(ansiMap[p]);
+      }
+      return styles.length ? `<span style="${styles.join('; ')}">` : '';
+    });
+  }
+
+  function scrollTerminalToBottom() {
+    if (terminalScreen) {
+      terminalScreen.scrollTop = terminalScreen.scrollHeight;
+    }
+  }
+
+  function appendTerminalMessage(title, text, isError = false) {
+    if (!terminalHistory) return;
+    const entry = document.createElement('div');
+    entry.className = 'term-entry';
+
+    let html = `
+      <div class="term-cmd-line">
+        <span class="prompt-tag">[I]</span>
+        <span class="prompt-arrow">&gt;</span>
+        <span class="term-cmd-text" style="color: #888888;">${escapeHtml(title)}</span>
+      </div>
+    `;
+
+    if (text) {
+      const errorClass = isError ? ' error' : '';
+      html += `<pre class="term-output${errorClass}">${ansiToHtml(text)}</pre>`;
+    }
+
+    entry.innerHTML = html;
+    terminalHistory.appendChild(entry);
+    scrollTerminalToBottom();
+  }
+
+  async function executeTerminalCommand(rawCmd) {
+    const cmd = rawCmd.trim();
+    if (!cmd) return;
+
+    cmdHistory.push(cmd);
+    cmdIndex = cmdHistory.length;
+
+    if (cmd === 'clear') {
+      if (terminalHistory) terminalHistory.innerHTML = '';
+      return;
+    }
+
+    if (cmd === 'exit') {
+      showView('welcome-view');
+      return;
+    }
+
+    // Tarixga kiritish va bajarilayotganini ko'rsatish
+    const entry = document.createElement('div');
+    entry.className = 'term-entry';
+    entry.innerHTML = `
+      <div class="term-cmd-line">
+        <span class="prompt-tag">[I]</span>
+        <span class="prompt-arrow">&gt;</span>
+        <span class="term-cmd-text">${escapeHtml(cmd)}</span>
+      </div>
+      <pre class="term-output" style="color: #666666;">...</pre>
+    `;
+    terminalHistory.appendChild(entry);
+    scrollTerminalToBottom();
+
+    const outputEl = entry.querySelector('.term-output');
+
+    try {
+      const res = await fetch(getApiUrl('/api/shell'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+          'ngrok-skip-browser-warning': 'true'
+        },
+        credentials: 'include',
+        body: JSON.stringify({ command: cmd, cwd: currentCwd })
+      });
+
+      if (res.status === 401) {
+        outputEl.className = 'term-output error';
+        outputEl.textContent = 'Sessiya tugadi. Qayta tizimga kiring.';
+        setTimeout(() => logoutSession(), 1500);
+        return;
+      }
+
+      const data = await res.json();
+      if (data.cwd) {
+        currentCwd = data.cwd;
+        updateCwdUI();
+      }
+
+      const hasStdout = Boolean(data.stdout && data.stdout.trim());
+      const hasStderr = Boolean(data.stderr && data.stderr.trim());
+
+      if (!hasStdout && !hasStderr) {
+        outputEl.remove();
+      } else {
+        const isError = data.exitCode !== 0;
+        outputEl.className = isError ? 'term-output error' : 'term-output';
+        let fullText = '';
+        if (data.stdout) fullText += data.stdout;
+        if (data.stderr) fullText += (fullText ? '\n' : '') + data.stderr;
+        outputEl.innerHTML = ansiToHtml(fullText);
+      }
+    } catch (err) {
+      outputEl.className = 'term-output error';
+      outputEl.textContent = `Xatolik: ${err.message}`;
+    }
+
+    scrollTerminalToBottom();
+  }
+
+  if (terminalInput) {
+    terminalInput.addEventListener('keydown', async (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const cmd = terminalInput.value;
+        terminalInput.value = '';
+        await executeTerminalCommand(cmd);
+        terminalInput.focus();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (cmdHistory.length > 0 && cmdIndex > 0) {
+          cmdIndex--;
+          terminalInput.value = cmdHistory[cmdIndex];
+        }
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (cmdIndex < cmdHistory.length - 1) {
+          cmdIndex++;
+          terminalInput.value = cmdHistory[cmdIndex];
+        } else {
+          cmdIndex = cmdHistory.length;
+          terminalInput.value = '';
+        }
+      } else if (e.ctrlKey && (e.key === 'l' || e.key === 'L')) {
+        e.preventDefault();
+        if (terminalHistory) terminalHistory.innerHTML = '';
+      }
+    });
+  }
+
+  if (terminalScreen) {
+    terminalScreen.addEventListener('click', () => {
+      if (window.getSelection().toString().length === 0) {
+        if (terminalInput) terminalInput.focus();
+      }
+    });
+  }
+
+  // ================= 13. NAVIGATSIYA TUGMALARI =================
+  // Menyu -> Ekran
+  if (modeScreenBtn) {
+    modeScreenBtn.addEventListener('click', () => {
+      startCountdown(3);
+    });
+  }
+
+  // Menyu -> Shell
+  if (modeShellBtn) {
+    modeShellBtn.addEventListener('click', () => {
+      showView('shell-view');
+      if (terminalHistory && terminalHistory.children.length === 0) {
+        appendTerminalMessage(
+          'MONITOR Interactive Bash Shell v2.0',
+          'Buyruq kiriting (masalan: ls -la, pwd, monitor status, htop, exit).'
+        );
+      }
+    });
+  }
+
+  // Menyu -> Chiqish
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+      logoutSession();
+    });
+  }
+
+  // Ekran ustidagi -> Shell
+  if (switchToShellBtn) {
+    switchToShellBtn.addEventListener('click', () => {
+      showView('shell-view');
+    });
+  }
+
+  // Ekran ustidagi -> Menyu
+  if (screenToMenuBtn) {
+    screenToMenuBtn.addEventListener('click', () => {
+      showView('welcome-view');
+    });
+  }
+
+  // Shell sarlavhasi -> Ekran
+  if (shellToScreenBtn) {
+    shellToScreenBtn.addEventListener('click', () => {
+      showView('screen-view');
+      startStream();
+      toggleFullscreen(true);
+    });
+  }
+
+  // Shell sarlavhasi -> Menyu
+  if (shellToMenuBtn) {
+    shellToMenuBtn.addEventListener('click', () => {
+      showView('welcome-view');
+    });
+  }
+
+  // Shell sarlavhasi -> Chiqish
+  if (shellLogoutBtn) {
+    shellLogoutBtn.addEventListener('click', () => {
+      logoutSession();
+    });
+  }
+
+  // ================= 14. BLOK TAYMERI =================
   function startBlockCountdown(totalSeconds) {
     if (blockCountdownTimer) clearInterval(blockCountdownTimer);
     let remain = Math.max(1, Math.round(totalSeconds));
@@ -355,8 +718,10 @@
       let timeText = '';
       if (mins > 0) timeText += `${mins} daqiqa `;
       timeText += `${secs} soniya`;
-      loginError.textContent = `Xavfsizlik bloki: Juda ko'p xato urinishlar. Ushbu IP ${timeText}ga bloklangan.`;
-      loginError.classList.remove('hidden');
+      if (loginError) {
+        loginError.textContent = `Xavfsizlik bloki: Juda ko'p xato urinishlar. Ushbu IP ${timeText}ga bloklangan.`;
+        loginError.classList.remove('hidden');
+      }
     }
 
     updateBlockText();
@@ -365,67 +730,83 @@
       if (remain <= 0) {
         clearInterval(blockCountdownTimer);
         blockCountdownTimer = null;
-        loginError.classList.add('hidden');
+        if (loginError) loginError.classList.add('hidden');
       } else {
         updateBlockText();
       }
     }, 1000);
   }
 
-  // ================= 11. LOGIN SUBMIT =================
-  loginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    loginError.classList.add('hidden');
+  // ================= 15. LOGIN FORMA =================
+  if (loginForm) {
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (loginError) loginError.classList.add('hidden');
 
-    const username = usernameInput.value.trim();
-    const password = passwordInput.value;
+      const username = usernameInput ? usernameInput.value.trim() : '';
+      const password = passwordInput ? passwordInput.value : '';
 
-    if (!username || !password) return;
+      if (!username || !password) return;
 
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Tekshirilmoqda...';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Tekshirilmoqda...';
+      }
 
-    try {
-      const res = await fetch(getApiUrl('/api/login'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true'
-        },
-        body: JSON.stringify({ username, password })
-      });
+      try {
+        const res = await fetch(getApiUrl('/api/login'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true'
+          },
+          credentials: 'include',
+          body: JSON.stringify({ username, password })
+        });
 
-      const data = await res.json();
+        const data = await res.json();
 
-      if (data.success) {
-        if (blockCountdownTimer) {
-          clearInterval(blockCountdownTimer);
-          blockCountdownTimer = null;
-        }
-        authToken = data.token;
-        passwordInput.value = '';
-        startCountdown(data.countdown || 10);
-      } else {
-        if (data.retryAfterSeconds) {
-          startBlockCountdown(data.retryAfterSeconds);
-        } else {
+        if (data.success) {
           if (blockCountdownTimer) {
             clearInterval(blockCountdownTimer);
             blockCountdownTimer = null;
           }
-          loginError.textContent = data.message || 'Login yoki parol noto‘g‘ri!';
+          authToken = data.token;
+          currentUsername = data.username || username;
+          localStorage.setItem('desktop_auth_token', authToken);
+          localStorage.setItem('desktop_username', currentUsername);
+
+          if (passwordInput) passwordInput.value = '';
+          showWelcomeView(currentUsername);
+        } else {
+          if (data.retryAfterSeconds) {
+            startBlockCountdown(data.retryAfterSeconds);
+          } else {
+            if (blockCountdownTimer) {
+              clearInterval(blockCountdownTimer);
+              blockCountdownTimer = null;
+            }
+            if (loginError) {
+              loginError.textContent = data.message || 'Login yoki parol noto‘g‘ri!';
+              loginError.classList.remove('hidden');
+            }
+          }
+        }
+      } catch (err) {
+        if (loginError) {
+          loginError.textContent = 'Server bilan bog‘lanishda xatolik yuz berdi';
           loginError.classList.remove('hidden');
         }
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Kirish';
+        }
       }
-    } catch (err) {
-      loginError.textContent = 'Server bilan bog‘lanishda xatolik yuz berdi';
-      loginError.classList.remove('hidden');
-    } finally {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Kirish';
-    }
-  });
+    });
+  }
 
-  // Boshlash
+  // ================= 16. ISHGA TUSHIRISH =================
+  updateCwdUI();
   initConfig();
 })();

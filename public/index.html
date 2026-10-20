@@ -67,7 +67,63 @@
     </div>
   </div>
 
-  <!-- 2. TAYMER (10 SONIYA) VA PRE-WARM -->
+  <!-- 2. WELCOME / MODE SELECTION MENU -->
+  <div id="welcome-view" class="view hidden">
+    <div class="welcome-container">
+      <div class="logo-wrapper">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" class="app-logo">
+          <circle cx="50" cy="50" r="50" fill="black" />
+          <g fill="white">
+            <rect x="22" y="26" width="56" height="36" rx="3" ry="3" />
+            <rect x="46" y="62" width="8" height="8" />
+            <rect x="36" y="70" width="28" height="4" rx="1.5" ry="1.5" />
+            <rect x="25" y="29" width="50" height="30" fill="black" rx="1" ry="1" />
+          </g>
+        </svg>
+      </div>
+
+      <div class="welcome-card">
+        <div class="welcome-header">
+          <div class="welcome-badge">● TIZIM TAYYOR</div>
+          <h1 id="welcome-user">MONITOR</h1>
+          <p>Ish rejimini tanlang:</p>
+        </div>
+
+        <div class="mode-grid">
+          <!-- REJIM 1: JONLI EKRAN -->
+          <div id="mode-screen-btn" class="mode-card">
+            <div class="mode-icon">🖥️</div>
+            <div class="mode-info">
+              <h3>Jonli Ekran (Monitor)</h3>
+              <p>Real-time WebRTC video, 2 tomonlama audio va mikrofon</p>
+            </div>
+            <div class="mode-arrow">→</div>
+          </div>
+
+          <!-- REJIM 2: SHELL TERMINAL -->
+          <div id="mode-shell-btn" class="mode-card">
+            <div class="mode-icon">💻</div>
+            <div class="mode-info">
+              <h3>Shell Terminal (CLI)</h3>
+              <p>Buyruqlar satri, bash execution va tizim boshqaruvi</p>
+            </div>
+            <div class="mode-arrow">→</div>
+          </div>
+        </div>
+
+        <button type="button" id="logout-btn" class="logout-link">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          Tizimdan chiqish (Logout)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. TAYMER (10 SONIYA) VA PRE-WARM -->
   <div id="countdown-view" class="view hidden">
     <div class="countdown-box">
       <div id="countdown-num" class="timer-display">10</div>
@@ -86,7 +142,7 @@
     </div>
   </div>
 
-  <!-- 3. SOF EKRAN -->
+  <!-- 4. SOF EKRAN -->
   <div id="screen-view" class="view hidden">
     <video-rtc id="screen-video"></video-rtc>
 
@@ -115,6 +171,40 @@
         </svg>
         <span id="mic-label">Gapirish</span>
       </button>
+
+      <!-- SHELL REJIMIGA O'TISH -->
+      <button id="switch-to-shell-btn" class="ctrl-btn" type="button" title="Shell Terminalga o'tish">
+        💻 Shell
+      </button>
+
+      <!-- BOSH MENYUGA QAYTISH -->
+      <button id="screen-to-menu-btn" class="ctrl-btn" type="button" title="Bosh menyu">
+        ☷ Menyu
+      </button>
+    </div>
+  </div>
+
+  <!-- 5. SHELL TERMINAL VIEW -->
+  <div id="shell-view" class="view hidden">
+    <div class="shell-header">
+      <div class="shell-title">
+        <span class="shell-dot"></span>
+        <span id="shell-cwd-text">~</span>
+      </div>
+      <div class="shell-actions">
+        <button id="shell-to-screen-btn" class="shell-action-btn" type="button">🖥️ Ekran</button>
+        <button id="shell-to-menu-btn" class="shell-action-btn" type="button">☷ Menyu</button>
+        <button id="shell-logout-btn" class="shell-action-btn" type="button">🚪 Chiqish</button>
+      </div>
+    </div>
+
+    <div id="terminal-screen" class="terminal-screen">
+      <div id="terminal-history" class="terminal-history"></div>
+      <div class="terminal-active-line">
+        <span class="prompt-tag">[I]</span>
+        <span class="prompt-arrow">&gt;</span>
+        <input type="text" id="terminal-input" class="terminal-input" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false">
+      </div>
     </div>
   </div>
 
