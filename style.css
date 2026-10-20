@@ -33,6 +33,88 @@ html, body {
   display: none !important;
 }
 
+/* ================= 0. SPLASH SCREEN ================= */
+.splash-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  animation: splashFadeIn 0.3s ease-out;
+}
+
+.splash-logo-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+.splash-logo {
+  width: 96px;
+  height: 96px;
+  animation: splashPulse 1.8s ease-in-out infinite;
+  filter: drop-shadow(0 0 16px rgba(255, 255, 255, 0.15));
+}
+
+.splash-title {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  color: #ffffff;
+  margin-top: 4px;
+}
+
+.splash-loader {
+  width: 140px;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 12px;
+  position: relative;
+}
+
+.splash-bar {
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, #ffffff, transparent);
+  border-radius: 3px;
+  animation: splashSlide 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes splashPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.95;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+    filter: drop-shadow(0 0 24px rgba(255, 255, 255, 0.3));
+  }
+}
+
+@keyframes splashSlide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}
+
+@keyframes splashFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 /* ================= 1. LOGIN SCREEN ================= */
 .login-container {
   width: 100%;
@@ -173,6 +255,10 @@ html, body {
 }
 
 .tip-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 1.5px;
@@ -480,15 +566,18 @@ video-rtc,
 }
 
 .welcome-badge {
-  display: inline-block;
-  padding: 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
   border-radius: 20px;
-  background: rgba(34, 197, 94, 0.12);
-  color: #22c55e;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: #10b981;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.5px;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .welcome-header h1 {
@@ -535,8 +624,23 @@ video-rtc,
 }
 
 .mode-icon {
-  font-size: 28px;
-  line-height: 1;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #f4f4f5;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.mode-card:hover .mode-icon {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
 }
 
 .mode-info {
@@ -557,9 +661,10 @@ video-rtc,
 }
 
 .mode-arrow {
-  color: #666666;
-  font-size: 18px;
-  font-weight: 700;
+  color: #71717a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: transform 0.2s ease, color 0.2s ease;
 }
 
@@ -636,22 +741,35 @@ video-rtc,
 }
 
 .shell-action-btn {
-  background: #161616;
-  border: 1px solid #2a2a2a;
-  border-radius: 4px;
-  color: #cccccc;
-  padding: 4px 10px;
+  background: #141416;
+  border: 1px solid #27272a;
+  border-radius: 6px;
+  color: #d4d4d8;
+  padding: 6px 12px;
   font-family: inherit;
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   transition: all 0.15s ease;
 }
 
 .shell-action-btn:hover {
-  background: #252525;
+  background: #27272a;
   color: #ffffff;
-  border-color: #444444;
+  border-color: #3f3f46;
+}
+
+.shell-action-btn.danger {
+  color: #f87171;
+}
+
+.shell-action-btn.danger:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: #ef4444;
+  color: #ef4444;
 }
 
 .terminal-screen {
@@ -727,4 +845,111 @@ video-rtc,
   padding: 0;
   margin: 0;
   caret-color: #00ff66;
+}
+
+/* ================= 8. RESPONSIVE DESIGN (MOBILE / TABLET / DESKTOP) ================= */
+@media (max-width: 640px) {
+  .screen-bottombar {
+    bottom: max(14px, env(safe-area-inset-bottom, 14px));
+    padding: 6px 8px;
+    gap: 4px;
+    max-width: calc(100vw - 20px);
+  }
+
+  .bar-btn {
+    width: 38px;
+    height: 38px;
+  }
+
+  .bar-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .bar-more-menu {
+    bottom: 52px;
+    right: 0;
+    min-width: 215px;
+  }
+
+  .welcome-container {
+    padding: 16px;
+  }
+
+  .welcome-card {
+    padding: 24px 16px;
+  }
+
+  .mode-card {
+    padding: 12px 14px;
+    gap: 12px;
+  }
+
+  .mode-icon {
+    width: 38px;
+    height: 38px;
+  }
+
+  .mode-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .mode-info h3 {
+    font-size: 14px;
+  }
+
+  .mode-info p {
+    font-size: 11px;
+  }
+
+  .shell-header {
+    height: 48px;
+    padding: 0 10px;
+  }
+
+  .shell-action-btn {
+    padding: 5px 8px;
+    font-size: 11px;
+    gap: 4px;
+  }
+
+  .shell-action-btn span {
+    font-size: 11px;
+  }
+
+  .terminal-screen {
+    padding: 12px 14px;
+    font-size: 13px;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .screen-bottombar {
+    bottom: 22px;
+    gap: 8px;
+    padding: 8px 14px;
+  }
+
+  .welcome-container {
+    max-width: 440px;
+  }
+
+  .terminal-screen {
+    padding: 16px 20px;
+    font-size: 14px;
+  }
+}
+
+@media (min-width: 1025px) {
+  .screen-bottombar {
+    bottom: 28px;
+    padding: 8px 16px;
+    gap: 10px;
+  }
+
+  .bar-btn {
+    width: 46px;
+    height: 46px;
+  }
 }

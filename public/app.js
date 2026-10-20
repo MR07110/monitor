@@ -26,6 +26,9 @@
   });
 
   // ================= 3. DOM ELEMENTLAR =================
+  // 0. Splash View
+  const splashView = document.getElementById('splash-view');
+
   // 1. Login View
   const loginView = document.getElementById('login-view');
   const loginForm = document.getElementById('login-form');
@@ -122,7 +125,7 @@
 
   // ================= 5. VIEW BOSHQARUVI =================
   function showView(viewId) {
-    const views = [loginView, welcomeView, countdownView, screenView, shellView];
+    const views = [splashView, loginView, welcomeView, countdownView, screenView, shellView];
     views.forEach(v => {
       if (v) {
         if (v.id === viewId) {
@@ -143,6 +146,7 @@
     }
 
     if (viewId === 'shell-view') {
+      initShellStreamSocket();
       setTimeout(() => {
         if (terminalInput) terminalInput.focus();
       }, 60);
@@ -167,46 +171,49 @@
       localStorage.setItem('remote_desk_host', remoteHost);
     }
 
-    try {
-      const res = await fetch('/api/config');
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.host) {
-          remoteHost = data.host.replace(/^https?:\/\//, '').replace(/\/$/, '');
-          localStorage.setItem('remote_desk_host', remoteHost);
+    if (!remoteHost) {
+      try {
+        const res = await fetch('/api/config');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.host) {
+            remoteHost = data.host.replace(/^https?:\/\//, '').replace(/\/$/, '');
+            localStorage.setItem('remote_desk_host', remoteHost);
+          }
         }
-      }
-    } catch (e) {}
+      } catch (e) {}
+    }
 
-    // Bloklanganlikni tekshirish
-    try {
-      const blockRes = await fetch(getApiUrl('/api/check-block'), {
-        headers: { 'ngrok-skip-browser-warning': 'true' }
-      });
-      if (blockRes.ok) {
-        const blockData = await blockRes.json();
-        if (blockData.blocked && blockData.retryAfterSeconds) {
-          startBlockCountdown(blockData.retryAfterSeconds);
-          showView('login-view');
-          return;
-        }
-      }
-    } catch (e) {}
-
-    // Avtorizatsiyani tekshirish (Foydalanuvchi doimo qayta kiritmasligi uchun)
     const savedToken = localStorage.getItem('desktop_auth_token');
+
+    // Agar token saqlangan bo'lsa: Blok va Auth ni bir vaqtda (parallel) tezkor tekshiramiz
     if (savedToken) {
       try {
-        const authRes = await fetch(getApiUrl('/api/check-auth'), {
-          headers: {
-            'Authorization': `Bearer ${savedToken}`,
-            'ngrok-skip-browser-warning': 'true'
-          },
-          credentials: 'include'
-        });
-        if (authRes.ok) {
-          const authData = await authRes.json();
-          if (authData.authenticated) {
+        const [authRes, blockRes] = await Promise.all([
+          fetch(getApiUrl('/api/check-auth'), {
+            headers: {
+              'Authorization': `Bearer ${savedToken}`,
+              'ngrok-skip-browser-warning': 'true'
+            },
+            credentials: 'include'
+          }).catch(() => null),
+          fetch(getApiUrl('/api/check-block'), {
+            headers: { 'ngrok-skip-browser-warning': 'true' }
+          }).catch(() => null)
+        ]);
+
+        if (blockRes && blockRes.ok) {
+          const blockData = await blockRes.json().catch(() => null);
+          if (blockData && blockData.blocked && blockData.retryAfterSeconds) {
+            startBlockCountdown(blockData.retryAfterSeconds);
+            showView('login-view');
+            return;
+          }
+        }
+
+        if (authRes && authRes.ok) {
+          const authData = await authRes.json().catch(() => null);
+          if (authData && authData.authenticated) {
             authToken = authData.token || savedToken;
             currentUsername = authData.username || localStorage.getItem('desktop_username') || 'muhamad';
             showWelcomeView(currentUsername);
@@ -218,6 +225,19 @@
       // Agar sessiya serverda tugagan bo'lsa
       localStorage.removeItem('desktop_auth_token');
       authToken = null;
+    } else {
+      // Token bo'lmaganda faqat bloklanganlikni tekshiramiz
+      try {
+        const blockRes = await fetch(getApiUrl('/api/check-block'), {
+          headers: { 'ngrok-skip-browser-warning': 'true' }
+        });
+        if (blockRes.ok) {
+          const blockData = await blockRes.json();
+          if (blockData && blockData.blocked && blockData.retryAfterSeconds) {
+            startBlockCountdown(blockData.retryAfterSeconds);
+          }
+        }
+      } catch (e) {}
     }
 
     showView('login-view');
@@ -241,6 +261,60 @@
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
     return `${protocol}//${getHost()}/video-stream${token}`;
+  }
+
+  // ================= 6.1 ULTRA-TEZKOR SHELL STREAM (WEBRTC/WEBSOCKET) =================
+  let shellWs = null;
+  const shellPending = new Map();
+
+  function getShellStreamUrl() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const token = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+    return `${protocol}//${getHost()}/shell-stream${token}`;
+  }
+
+  function initShellStreamSocket() {
+    if (!authToken) return;
+    if (shellWs && (shellWs.readyState === WebSocket.OPEN || shellWs.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
+
+    try {
+      shellWs = new WebSocket(getShellStreamUrl());
+
+      shellWs.onopen = () => {
+        // Ultra-past kechikishli shell oqimi ulandi
+      };
+
+      shellWs.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          const { id, type } = data;
+          if (!id || !shellPending.has(id)) return;
+
+          const req = shellPending.get(id);
+
+          if (type === 'chunk') {
+            if (req.onChunk) req.onChunk(data);
+          } else if (type === 'done') {
+            clearTimeout(req.timer);
+            shellPending.delete(id);
+            if (req.onDone) req.onDone(data);
+          }
+        } catch (e) {}
+      };
+
+      shellWs.onclose = () => {
+        shellWs = null;
+        if (authToken) {
+          setTimeout(initShellStreamSocket, 2000);
+        }
+      };
+
+      shellWs.onerror = () => {};
+    } catch (e) {
+      shellWs = null;
+    }
   }
 
   // ================= 7. ORIENTATSIYA NAZORATI =================
@@ -618,12 +692,65 @@
         <span class="prompt-arrow">&gt;</span>
         <span class="term-cmd-text">${escapeHtml(cmd)}</span>
       </div>
-      <pre class="term-output" style="color: #666666;">...</pre>
+      <pre class="term-output" style="color: #666666;"></pre>
     `;
     terminalHistory.appendChild(entry);
     scrollTerminalToBottom();
 
     const outputEl = entry.querySelector('.term-output');
+
+    // 1. Ultra-tezkor WebSocket rejimida jo'natish (WebRTC kabi ko'z yumib ochguncha)
+    if (shellWs && shellWs.readyState === WebSocket.OPEN) {
+      const cmdId = 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+      let accumulatedText = '';
+      let hasReceived = false;
+
+      const timer = setTimeout(() => {
+        if (shellPending.has(cmdId)) {
+          shellPending.delete(cmdId);
+          if (!hasReceived) {
+            outputEl.className = 'term-output error';
+            outputEl.textContent = 'Buyruq kutish vaqti tugadi (timeout: 20s).';
+          }
+        }
+      }, 20000);
+
+      shellPending.set(cmdId, {
+        timer,
+        onChunk: (chunk) => {
+          hasReceived = true;
+          if (chunk.stdout) accumulatedText += chunk.stdout;
+          if (chunk.stderr) accumulatedText += chunk.stderr;
+          outputEl.innerHTML = ansiToHtml(accumulatedText);
+          scrollTerminalToBottom();
+        },
+        onDone: (data) => {
+          hasReceived = true;
+          if (data.cwd) {
+            currentCwd = data.cwd;
+            updateCwdUI();
+          }
+          if (data.stdout && !accumulatedText.includes(data.stdout)) accumulatedText += data.stdout;
+          if (data.stderr && !accumulatedText.includes(data.stderr)) accumulatedText += data.stderr;
+
+          if (!accumulatedText.trim()) {
+            outputEl.remove();
+          } else {
+            const isError = data.exitCode !== 0;
+            outputEl.className = isError ? 'term-output error' : 'term-output';
+            outputEl.innerHTML = ansiToHtml(accumulatedText);
+          }
+          scrollTerminalToBottom();
+        }
+      });
+
+      shellWs.send(JSON.stringify({ id: cmdId, command: cmd, cwd: currentCwd }));
+      return;
+    }
+
+    // 2. Agar WebSocket ulanmagan bo'lsa uni tiklashga urinib, HTTP fallback orqali jo'natish
+    initShellStreamSocket();
+    outputEl.textContent = '...';
 
     try {
       const res = await fetch(getApiUrl('/api/shell'), {

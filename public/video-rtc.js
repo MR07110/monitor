@@ -466,21 +466,20 @@ class VideoRTC extends HTMLElement {
 
                 if (!sb.updating && sb.buffered && sb.buffered.length) {
                     const end = sb.buffered.end(sb.buffered.length - 1);
-                    const start = end - 5;
+                    const start = end - 0.8;
                     const start0 = sb.buffered.start(0);
                     if (start > start0) {
-                        sb.remove(start0, start);
-                        ms.setLiveSeekableRange(start, end);
-                    }
-                    if (this.video.currentTime < start) {
-                        this.video.currentTime = start;
+                        try {
+                            sb.remove(start0, start);
+                            ms.setLiveSeekableRange(start, end);
+                        } catch (e) {}
                     }
                     const gap = end - this.video.currentTime;
-                    if (gap > 0.6) {
-                        this.video.currentTime = end - 0.05;
+                    // Doimo oxirgi jonli kadrda (live edge) turish, eski kadrlar buferini ko'rsatmaslik
+                    if (gap > 0.25 || this.video.currentTime < start) {
+                        this.video.currentTime = end;
                     }
                     this.video.playbackRate = 1.0;
-                    // console.debug('VideoRTC.buffered', gap, this.video.playbackRate, this.video.readyState);
                 }
             });
 
@@ -643,12 +642,7 @@ class VideoRTC extends HTMLElement {
                 this.play();
 
                 this.pcState = WebSocket.OPEN;
-
-                this.wsState = WebSocket.CLOSED;
-                if (this.ws) {
-                    this.ws.close();
-                    this.ws = null;
-                }
+                // Aloqa uzilmasligi va ikki tomonlama mikrofon ishlashi uchun WebSocket ochiq qoldiriladi
             } else {
                 this.pcState = WebSocket.CLOSED;
                 if (this.pc) {
