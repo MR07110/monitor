@@ -79,6 +79,7 @@
   const terminalScreen = document.getElementById('terminal-screen');
   const terminalHistory = document.getElementById('terminal-history');
   const terminalInput = document.getElementById('terminal-input');
+  const terminalActiveLine = document.querySelector('.terminal-active-line');
 
   // ================= 4. HOLAT (STATE) =================
   let authToken = localStorage.getItem('desktop_auth_token') || null;
@@ -666,21 +667,21 @@
     scrollTerminalToBottom();
   }
 
-  async function executeTerminalCommand(rawCmd) {
+  function executeTerminalCommand(rawCmd) {
     const cmd = rawCmd.trim();
-    if (!cmd) return;
+    if (!cmd) return Promise.resolve();
 
     cmdHistory.push(cmd);
     cmdIndex = cmdHistory.length;
 
     if (cmd === 'clear') {
       if (terminalHistory) terminalHistory.innerHTML = '';
-      return;
+      return Promise.resolve();
     }
 
     if (cmd === 'exit') {
       showView('welcome-view');
-      return;
+      return Promise.resolve();
     }
 
     // Tarixga kiritish va bajarilayotganini ko'rsatish
@@ -701,101 +702,106 @@
 
     // 1. Ultra-tezkor WebSocket rejimida jo'natish (WebRTC kabi ko'z yumib ochguncha)
     if (shellWs && shellWs.readyState === WebSocket.OPEN) {
-      const cmdId = 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
-      let accumulatedText = '';
-      let hasReceived = false;
+      return new Promise((resolve) => {
+        const cmdId = 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+        let accumulatedText = '';
+        let hasReceived = false;
 
-      const timer = setTimeout(() => {
-        if (shellPending.has(cmdId)) {
-          shellPending.delete(cmdId);
-          if (!hasReceived) {
-            outputEl.className = 'term-output error';
-            outputEl.textContent = 'Buyruq kutish vaqti tugadi (timeout: 20s).';
+        const timer = setTimeout(() => {
+          if (shellPending.has(cmdId)) {
+            shellPending.delete(cmdId);
+            if (!hasReceived) {
+              outputEl.className = 'term-output error';
+              outputEl.textContent = 'Buyruq kutish vaqti tugadi (timeout: 20s).';
+            }
+            resolve();
           }
-        }
-      }, 20000);
+        }, 20000);
 
-      shellPending.set(cmdId, {
-        timer,
-        onChunk: (chunk) => {
-          hasReceived = true;
-          if (chunk.stdout) accumulatedText += chunk.stdout;
-          if (chunk.stderr) accumulatedText += chunk.stderr;
-          outputEl.innerHTML = ansiToHtml(accumulatedText);
-          scrollTerminalToBottom();
-        },
-        onDone: (data) => {
-          hasReceived = true;
-          if (data.cwd) {
-            currentCwd = data.cwd;
-            updateCwdUI();
-          }
-          if (data.stdout && !accumulatedText.includes(data.stdout)) accumulatedText += data.stdout;
-          if (data.stderr && !accumulatedText.includes(data.stderr)) accumulatedText += data.stderr;
-
-          if (!accumulatedText.trim()) {
-            outputEl.remove();
-          } else {
-            const isError = data.exitCode !== 0;
-            outputEl.className = isError ? 'term-output error' : 'term-output';
+        shellPending.set(cmdId, {
+          timer,
+          onChunk: (chunk) => {
+            hasReceived = true;
+            if (chunk.stdout) accumulatedText += chunk.stdout;
+            if (chunk.stderr) accumulatedText += chunk.stderr;
             outputEl.innerHTML = ansiToHtml(accumulatedText);
-          }
-          scrollTerminalToBottom();
-        }
-      });
+            scrollTerminalToBottom();
+          },
+          onDone: (data) => {
+            hasReceived = true;
+            if (data.cwd) {
+              currentCwd = data.cwd;
+              updateCwdUI();
+            }
+            if (data.stdout && !accumulatedText.includes(data.stdout)) accumulatedText += data.stdout;
+            if (data.stderr && !accumulatedText.includes(data.stderr)) accumulatedText += data.stderr;
 
-      shellWs.send(JSON.stringify({ id: cmdId, command: cmd, cwd: currentCwd }));
-      return;
+            if (!accumulatedText.trim()) {
+              outputEl.remove();
+            } else {
+              const isError = data.exitCode !== 0;
+              outputEl.className = isError ? 'term-output error' : 'term-output';
+              outputEl.innerHTML = ansiToHtml(accumulatedText);
+            }
+            scrollTerminalToBottom();
+            resolve();
+          }
+        });
+
+        shellWs.send(JSON.stringify({ id: cmdId, command: cmd, cwd: currentCwd }));
+      });
     }
 
     // 2. Agar WebSocket ulanmagan bo'lsa uni tiklashga urinib, HTTP fallback orqali jo'natish
     initShellStreamSocket();
     outputEl.textContent = '...';
 
-    try {
-      const res = await fetch(getApiUrl('/api/shell'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`,
-          'ngrok-skip-browser-warning': 'true'
-        },
-        credentials: 'include',
-        body: JSON.stringify({ command: cmd, cwd: currentCwd })
-      });
+    return (async () => {
+      try {
+        const res = await fetch(getApiUrl('/api/shell'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`,
+            'ngrok-skip-browser-warning': 'true'
+          },
+          credentials: 'include',
+          body: JSON.stringify({ command: cmd, cwd: currentCwd })
+        });
 
-      if (res.status === 401) {
+        if (res.status === 401) {
+          outputEl.className = 'term-output error';
+          outputEl.textContent = 'Sessiya tugadi. Qayta tizimga kiring.';
+          setTimeout(() => logoutSession(), 1500);
+          return;
+        }
+
+        const data = await res.json();
+        if (data.cwd) {
+          currentCwd = data.cwd;
+          updateCwdUI();
+        }
+
+        const hasStdout = Boolean(data.stdout && data.stdout.trim());
+        const hasStderr = Boolean(data.stderr && data.stderr.trim());
+
+        if (!hasStdout && !hasStderr) {
+          outputEl.remove();
+        } else {
+          const isError = data.exitCode !== 0;
+          outputEl.className = isError ? 'term-output error' : 'term-output';
+          let fullText = '';
+          if (data.stdout) fullText += data.stdout;
+          if (data.stderr) fullText += (fullText ? '\n' : '') + data.stderr;
+          outputEl.innerHTML = ansiToHtml(fullText);
+        }
+      } catch (err) {
         outputEl.className = 'term-output error';
-        outputEl.textContent = 'Sessiya tugadi. Qayta tizimga kiring.';
-        setTimeout(() => logoutSession(), 1500);
-        return;
+        outputEl.textContent = `Xatolik: ${err.message}`;
       }
 
-      const data = await res.json();
-      if (data.cwd) {
-        currentCwd = data.cwd;
-        updateCwdUI();
-      }
-
-      const hasStdout = Boolean(data.stdout && data.stdout.trim());
-      const hasStderr = Boolean(data.stderr && data.stderr.trim());
-
-      if (!hasStdout && !hasStderr) {
-        outputEl.remove();
-      } else {
-        const isError = data.exitCode !== 0;
-        outputEl.className = isError ? 'term-output error' : 'term-output';
-        let fullText = '';
-        if (data.stdout) fullText += data.stdout;
-        if (data.stderr) fullText += (fullText ? '\n' : '') + data.stderr;
-        outputEl.innerHTML = ansiToHtml(fullText);
-      }
-    } catch (err) {
-      outputEl.className = 'term-output error';
-      outputEl.textContent = `Xatolik: ${err.message}`;
-    }
-
-    scrollTerminalToBottom();
+      scrollTerminalToBottom();
+    })();
   }
 
   if (terminalInput) {
@@ -803,9 +809,18 @@
       if (e.key === 'Enter') {
         e.preventDefault();
         const cmd = terminalInput.value;
+        if (!cmd.trim()) return;
+
         terminalInput.value = '';
-        await executeTerminalCommand(cmd);
-        terminalInput.focus();
+        if (terminalActiveLine) terminalActiveLine.classList.add('hidden');
+
+        try {
+          await executeTerminalCommand(cmd);
+        } finally {
+          if (terminalActiveLine) terminalActiveLine.classList.remove('hidden');
+          terminalInput.focus();
+          scrollTerminalToBottom();
+        }
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         if (cmdHistory.length > 0 && cmdIndex > 0) {
