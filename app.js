@@ -7,24 +7,6 @@
     return;
   }
 
-  // ================= 2. DEVTOOLS & KONSOL HIMOYA =================
-  document.addEventListener('contextmenu', e => {
-    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
-    e.preventDefault();
-  });
-
-  document.addEventListener('keydown', e => {
-    if (
-      e.key === 'F12' ||
-      (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) ||
-      (e.ctrlKey && (e.key === 'U' || e.key === 'u' || e.key === 'S' || e.key === 's'))
-    ) {
-      e.preventDefault();
-      e.stopPropagation();
-      return false;
-    }
-  });
-
   // ================= 3. DOM ELEMENTLAR =================
   // 0. Splash View
   const splashView = document.getElementById('splash-view');
@@ -91,6 +73,8 @@
   let cmdIndex = -1;
   let shellHistory = [];
   let currentSuggestion = '';
+  let isCommandRunning = false;
+  let runningCmdId = null;
   let isMicActive = false;
   let prewarmStarted = false;
   let countdownTimer = null;
@@ -602,34 +586,19 @@
     }
   }
 
-  // ================= 11. TAYMER & SCREEN REJIMIGA KIRISH =================
-  function startCountdown(seconds = 3) {
-    if (countdownTimer) clearInterval(countdownTimer);
-    showView('countdown-view');
-    prewarmStarted = false;
+  // ================= 11. SCREEN REJIMIGA KIRISH (DARHOL, KUTISKSIZ) =================
+  function enterScreenView() {
+    if (countdownTimer) {
+      clearInterval(countdownTimer);
+      countdownTimer = null;
+    }
+    showView('screen-view');
+    startStream();
+    toggleFullscreen(true);
+  }
 
-    let remain = seconds;
-    if (countdownNum) countdownNum.textContent = remain;
-    if (progressBar) progressBar.style.width = '100%';
-
-    countdownTimer = setInterval(() => {
-      remain -= 1;
-
-      if (remain <= 1 && !prewarmStarted) {
-        startStream();
-      }
-
-      if (remain <= 0) {
-        clearInterval(countdownTimer);
-        countdownTimer = null;
-        showView('screen-view');
-        startStream();
-        toggleFullscreen(true);
-      } else {
-        if (countdownNum) countdownNum.textContent = remain;
-        if (progressBar) progressBar.style.width = `${(remain / seconds) * 100}%`;
-      }
-    }, 1000);
+  function startCountdown() {
+    enterScreenView();
   }
 
   // ================= 12. SHELL TERMINAL BOSHQARUVI =================
@@ -759,19 +728,26 @@
     if (shellWs && shellWs.readyState === WebSocket.OPEN) {
       return new Promise((resolve) => {
         const cmdId = 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+        runningCmdId = cmdId;
+        isCommandRunning = true;
+        if (terminalActiveLine) terminalActiveLine.classList.add('running');
+
         let accumulatedText = '';
         let hasReceived = false;
 
         const timer = setTimeout(() => {
           if (shellPending.has(cmdId)) {
             shellPending.delete(cmdId);
+            isCommandRunning = false;
+            runningCmdId = null;
+            if (terminalActiveLine) terminalActiveLine.classList.remove('running');
             if (!hasReceived) {
               outputEl.className = 'term-output error';
-              outputEl.textContent = 'Buyruq kutish vaqti tugadi (timeout: 20s).';
+              outputEl.textContent = 'Buyruq kutish vaqti tugadi (timeout: 60s).';
             }
             resolve();
           }
-        }, 20000);
+        }, 60000);
 
         shellPending.set(cmdId, {
           timer,
@@ -783,6 +759,9 @@
             scrollTerminalToBottom();
           },
           onDone: (data) => {
+            isCommandRunning = false;
+            runningCmdId = null;
+            if (terminalActiveLine) terminalActiveLine.classList.remove('running');
             hasReceived = true;
             if (data.cwd) {
               currentCwd = data.cwd;
@@ -892,16 +871,33 @@
       if (e.key === 'Enter') {
         clearSuggestion();
         e.preventDefault();
+
+        // 1. Agar jarayon davom etayotgan bo'lsa (masalan: su ron parol kutayotgan bo'lsa)
+        if (isCommandRunning && runningCmdId) {
+          const stdinText = terminalInput.value;
+          terminalInput.value = '';
+          if (shellWs && shellWs.readyState === WebSocket.OPEN) {
+            shellWs.send(JSON.stringify({ id: runningCmdId, type: 'stdin', text: stdinText + '\r' }));
+          }
+          return;
+        }
+
+        // 2. Yangi buyruq kiritish
         const cmd = terminalInput.value;
         if (!cmd.trim()) return;
 
         terminalInput.value = '';
-        if (terminalActiveLine) terminalActiveLine.classList.add('hidden');
+        if (terminalActiveLine) terminalActiveLine.classList.add('running');
 
         try {
           await executeTerminalCommand(cmd);
         } finally {
-          if (terminalActiveLine) terminalActiveLine.classList.remove('hidden');
+          isCommandRunning = false;
+          runningCmdId = null;
+          if (terminalActiveLine) {
+            terminalActiveLine.classList.remove('running');
+            terminalActiveLine.classList.remove('hidden');
+          }
           terminalInput.focus();
           scrollTerminalToBottom();
         }
@@ -938,11 +934,58 @@
     });
   }
 
+  // Global Ctrl+C (SIGINT / Bekor qilish)
+  window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C')) {
+      if (window.getSelection().toString().length > 0) {
+        return;
+      }
+
+      if (isCommandRunning && runningCmdId) {
+        e.preventDefault();
+        try {
+          if (shellWs && shellWs.readyState === WebSocket.OPEN) {
+            shellWs.send(JSON.stringify({ id: runningCmdId, type: 'interrupt' }));
+          }
+        } catch (_) {}
+
+        // Tarixga ^C qo'shish
+        const entries = document.querySelectorAll('.terminal-history .term-entry');
+        if (entries.length > 0) {
+          const lastEntry = entries[entries.length - 1];
+          const outEl = lastEntry.querySelector('.term-output');
+          if (outEl) {
+            outEl.innerHTML += '^C\n';
+          }
+        }
+
+        isCommandRunning = false;
+        runningCmdId = null;
+        if (terminalActiveLine) {
+          terminalActiveLine.classList.remove('running');
+          terminalActiveLine.classList.remove('hidden');
+        }
+        if (terminalInput) {
+          terminalInput.value = '';
+          terminalInput.focus();
+        }
+        scrollTerminalToBottom();
+        return;
+      }
+
+      if (document.activeElement === terminalInput && terminalInput.value) {
+        e.preventDefault();
+        terminalInput.value = '';
+        clearSuggestion();
+      }
+    }
+  });
+
   // ================= 13. NAVIGATSIYA TUGMALARI =================
   // Menyu -> Ekran
   if (modeScreenBtn) {
     modeScreenBtn.addEventListener('click', () => {
-      startCountdown(3);
+      enterScreenView();
     });
   }
 

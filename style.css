@@ -48,8 +48,6 @@ html, body {
   color: var(--text-main);
   font-family: var(--font-sans);
   overflow: hidden;
-  user-select: none;
-  -webkit-user-select: none;
 }
 
 /* Custom Dev Scrollbar */
@@ -368,7 +366,6 @@ html, body {
   padding: 14px 16px;
   cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease;
-  user-select: none;
 }
 
 .mode-card:hover {
@@ -558,7 +555,6 @@ video-rtc,
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.03);
   z-index: 1000;
   transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease;
-  user-select: none;
 }
 
 .screen-bottombar.hidden-bar {
@@ -673,7 +669,6 @@ video-rtc,
   width: 100%;
   text-align: left;
   transition: background 0.12s ease;
-  user-select: none;
 }
 
 .menu-item:hover {
@@ -726,7 +721,6 @@ video-rtc,
   align-items: center;
   justify-content: space-between;
   padding: 0 16px;
-  user-select: none;
 }
 
 .shell-title {
@@ -847,6 +841,11 @@ video-rtc,
   margin-top: 4px;
 }
 
+.terminal-active-line.running .prompt-tag,
+.terminal-active-line.running .prompt-arrow {
+  display: none !important;
+}
+
 .terminal-input-wrap {
   position: relative;
   flex: 1;
@@ -868,8 +867,6 @@ video-rtc,
   font-size: 13px;
   line-height: inherit;
   white-space: pre;
-  user-select: none;
-  -webkit-user-select: none;
   overflow: hidden;
   z-index: 1;
 }

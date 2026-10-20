@@ -523,15 +523,23 @@ class VideoRTC extends HTMLElement {
 
     onwebrtc() {
         const pc = new RTCPeerConnection(this.pcConfig);
-        const stream = new MediaStream();
-        this.video.srcObject = stream;
 
         pc.ontrack = ev => {
-            if (ev.track) {
-                stream.addTrack(ev.track);
+            if (ev.streams && ev.streams[0]) {
+                if (this.video.srcObject !== ev.streams[0]) {
+                    this.video.srcObject = ev.streams[0];
+                    this.play();
+                }
+            } else if (ev.track) {
+                let s = this.video.srcObject;
+                if (!s || !(s instanceof MediaStream)) {
+                    s = new MediaStream();
+                    this.video.srcObject = s;
+                }
+                s.addTrack(ev.track);
                 this.play();
-                this.pcState = WebSocket.OPEN;
             }
+            this.pcState = WebSocket.OPEN;
         };
 
         pc.addEventListener('icecandidate', ev => {
@@ -545,7 +553,7 @@ class VideoRTC extends HTMLElement {
             if (pc.connectionState === 'connected') {
                 this.pcState = WebSocket.OPEN;
                 this.play();
-            } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+            } else if (pc.connectionState === 'failed') {
                 pc.close();
 
                 this.pcState = WebSocket.CLOSED;
