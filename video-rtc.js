@@ -18,8 +18,8 @@ class VideoRTC extends HTMLElement {
     constructor() {
         super();
 
-        this.DISCONNECT_TIMEOUT = 5000;
-        this.RECONNECT_TIMEOUT = 15000;
+        this.DISCONNECT_TIMEOUT = 0;
+        this.RECONNECT_TIMEOUT = 5000;
 
         this.CODECS = [
             'avc1.640029',      // H.264 high 4.1 (Chromecast 1st and 2nd Gen)
@@ -36,7 +36,7 @@ class VideoRTC extends HTMLElement {
          * [config] Supported modes (webrtc, webrtc/tcp, mse, hls, mp4, mjpeg).
          * @type {string}
          */
-        this.mode = 'webrtc,mse,hls,mjpeg';
+        this.mode = 'webrtc';
 
         /**
          * [Config] Requested medias (video, audio, microphone).
@@ -48,7 +48,7 @@ class VideoRTC extends HTMLElement {
          * [config] Run stream when not displayed on the screen. Default `false`.
          * @type {boolean}
          */
-        this.background = false;
+        this.background = true;
 
         /**
          * [config] Run stream only when player in the viewport. Stop when user scroll out player.
@@ -63,7 +63,7 @@ class VideoRTC extends HTMLElement {
          * tab or minimise browser windows.
          * @type {boolean}
          */
-        this.visibilityCheck = true;
+        this.visibilityCheck = false;
 
         /**
          * [config] WebRTC configuration
