@@ -143,6 +143,13 @@
       hideBottombar();
     }
 
+    if (viewId !== 'pty-view') {
+      if (ptyWs) {
+        try { ptyWs.close(); } catch (_) {}
+        ptyWs = null;
+      }
+    }
+
     if (viewId === 'screen-view') {
       showBottombar();
     }
@@ -172,10 +179,6 @@
       welcomeUser.textContent = 'MONITOR';
     }
     showView('welcome-view');
-    // Menyuda turgandayoq orqa fonda WebRTC oqimini oldindan tayyorlab ulab qo'yamiz (0 ms kechikish uchun)
-    setTimeout(() => {
-      startStream();
-    }, 200);
   }
 
   // ================= 6. KONFIGURATSIYA VA AVTORIZATSIYA TEKSHIRUVI =================
