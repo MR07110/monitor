@@ -268,6 +268,8 @@ class VideoRTC extends HTMLElement {
 
         this.video.addEventListener('error', ev => {
             const err = this.video.error;
+            // ondisconnect() dagi video.src='' brauzerda zararsiz "Empty src" xatosi beradi, qayta ulanishga sabab bo'lmasin
+            if (err && err.code === 4 && /Empty src/i.test(err.message || '')) return;
             // https://developer.mozilla.org/en-US/docs/Web/API/MediaError/code
             const MEDIA_ERRORS = {
                 1: 'MEDIA_ERR_ABORTED',
