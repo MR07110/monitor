@@ -79,6 +79,8 @@
   const terminalHistory = document.getElementById('terminal-history');
   const terminalInput = document.getElementById('terminal-input');
   const terminalActiveLine = document.querySelector('.terminal-active-line');
+  const ghostHidden = document.getElementById('ghost-hidden');
+  const ghostSuggestion = document.getElementById('ghost-suggestion');
 
   // ================= 4. HOLAT (STATE) =================
   let authToken = localStorage.getItem('desktop_auth_token') || null;
@@ -87,6 +89,8 @@
   let currentCwd = '~';
   const cmdHistory = [];
   let cmdIndex = -1;
+  let shellHistory = [];
+  let currentSuggestion = '';
   let isMicActive = false;
   let prewarmStarted = false;
   let countdownTimer = null;
@@ -147,6 +151,7 @@
 
     if (viewId === 'shell-view') {
       initShellStreamSocket();
+      fetchShellHistory();
       setTimeout(() => {
         if (terminalInput) terminalInput.focus();
       }, 60);
@@ -282,12 +287,25 @@
 
       shellWs.onopen = () => {
         // Ultra-past kechikishli shell oqimi ulandi
+        try {
+          shellWs.send(JSON.stringify({ type: 'get_history' }));
+        } catch (_) {}
       };
 
       shellWs.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
           const { id, type } = data;
+
+          // Fish/Bash tarixi kelganda yuklash
+          if (type === 'history' && Array.isArray(data.history)) {
+            shellHistory = data.history;
+            cmdHistory.length = 0;
+            cmdHistory.push(...shellHistory);
+            cmdIndex = cmdHistory.length;
+            return;
+          }
+
           if (!id || !shellPending.has(id)) return;
 
           const req = shellPending.get(id);
@@ -313,6 +331,62 @@
     } catch (e) {
       shellWs = null;
     }
+  }
+
+  // ================= 6.2 FISH & BASH TARIXINI YUKLASH VA AUTOSUGGEST =================
+  async function fetchShellHistory() {
+    if (!authToken) return;
+    try {
+      const res = await fetch(getApiUrl('/api/shell-history'), {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'ngrok-skip-browser-warning': 'true'
+        },
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.history) && data.history.length > 0) {
+          shellHistory = data.history;
+          cmdHistory.length = 0;
+          cmdHistory.push(...shellHistory);
+          cmdIndex = cmdHistory.length;
+        }
+      }
+    } catch (_) {}
+  }
+
+  function updateSuggestion() {
+    if (!ghostHidden || !ghostSuggestion || !terminalInput) return;
+    const val = terminalInput.value;
+    if (!val || !val.trim()) {
+      clearSuggestion();
+      return;
+    }
+
+    // Fish kabi eng yangi tarixdan boshlab qidirish
+    let match = '';
+    for (let i = shellHistory.length - 1; i >= 0; i--) {
+      const item = shellHistory[i];
+      if (item && item.startsWith(val) && item !== val) {
+        match = item;
+        break;
+      }
+    }
+
+    if (match) {
+      currentSuggestion = match;
+      ghostHidden.textContent = val;
+      ghostSuggestion.textContent = match.slice(val.length);
+    } else {
+      clearSuggestion();
+    }
+  }
+
+  function clearSuggestion() {
+    currentSuggestion = '';
+    if (ghostHidden) ghostHidden.textContent = '';
+    if (ghostSuggestion) ghostSuggestion.textContent = '';
   }
 
   // ================= 8. FULLSCREEN TOGGLE =================
@@ -651,6 +725,9 @@
 
     cmdHistory.push(cmd);
     cmdIndex = cmdHistory.length;
+    if (!shellHistory.includes(cmd)) {
+      shellHistory.push(cmd);
+    }
 
     if (cmd === 'clear') {
       if (terminalHistory) terminalHistory.innerHTML = '';
@@ -783,8 +860,37 @@
   }
 
   if (terminalInput) {
+    terminalInput.addEventListener('input', () => {
+      updateSuggestion();
+    });
+
     terminalInput.addEventListener('keydown', async (e) => {
+      // Tab yoki ArrowRight (qator oxirida) bosilganda autosuggestion ni qabul qilish
+      if (e.key === 'Tab') {
+        if (currentSuggestion) {
+          e.preventDefault();
+          terminalInput.value = currentSuggestion;
+          clearSuggestion();
+          return;
+        }
+      }
+
+      if (e.key === 'ArrowRight') {
+        if (currentSuggestion && terminalInput.selectionStart === terminalInput.value.length) {
+          e.preventDefault();
+          terminalInput.value = currentSuggestion;
+          clearSuggestion();
+          return;
+        }
+      }
+
+      if (e.key === 'Escape') {
+        clearSuggestion();
+        return;
+      }
+
       if (e.key === 'Enter') {
+        clearSuggestion();
         e.preventDefault();
         const cmd = terminalInput.value;
         if (!cmd.trim()) return;
@@ -801,12 +907,14 @@
         }
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
+        clearSuggestion();
         if (cmdHistory.length > 0 && cmdIndex > 0) {
           cmdIndex--;
           terminalInput.value = cmdHistory[cmdIndex];
         }
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
+        clearSuggestion();
         if (cmdIndex < cmdHistory.length - 1) {
           cmdIndex++;
           terminalInput.value = cmdHistory[cmdIndex];
@@ -816,6 +924,7 @@
         }
       } else if (e.ctrlKey && (e.key === 'l' || e.key === 'L')) {
         e.preventDefault();
+        clearSuggestion();
         if (terminalHistory) terminalHistory.innerHTML = '';
       }
     });

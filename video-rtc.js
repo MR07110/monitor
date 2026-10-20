@@ -590,12 +590,12 @@ class VideoRTC extends HTMLElement {
     async createOffer(pc) {
         try {
             if (this.media.includes('microphone')) {
-                const media = await navigator.mediaDevices.getUserMedia({audio: true});
-                this.micStream = media;
-                media.getTracks().forEach(track => {
-                    track.enabled = !!this.micEnabled;
-                    pc.addTransceiver(track, {direction: 'sendonly'});
-                });
+                // Mikrofonni oldindan ochmaymiz (offer kechikmasin): trek keyin replaceTrack bilan ulanadi
+                this.micTransceiver = pc.addTransceiver('audio', {direction: 'sendonly'});
+                if (this.micStream) {
+                    const t = this.micStream.getAudioTracks()[0];
+                    if (t) this.micTransceiver.sender.replaceTrack(t).catch(() => {});
+                }
             }
         } catch (e) {
             console.warn('[VideoRTC] Mic error:', e);
@@ -625,10 +625,11 @@ class VideoRTC extends HTMLElement {
         if (!this.micStream) {
             try {
                 this.micStream = await navigator.mediaDevices.getUserMedia({audio: true});
-                if (this.pc) {
-                    this.micStream.getTracks().forEach(track => {
-                        this.pc.addTrack(track, this.micStream);
-                    });
+                const track = this.micStream.getAudioTracks()[0];
+                if (track && this.micTransceiver) {
+                    await this.micTransceiver.sender.replaceTrack(track);
+                } else if (track && this.pc) {
+                    this.pc.addTrack(track, this.micStream);
                 }
             } catch (e) {
                 console.warn('[VideoRTC] mic permission denied:', e);

@@ -6,7 +6,7 @@
   <title>MONITOR</title>
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <link rel="apple-touch-icon" href="./favicon.svg">
-  <link rel="stylesheet" href="./style.css?v=3.3">
+  <link rel="stylesheet" href="./style.css?v=3.5">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -335,11 +335,17 @@
       <div class="terminal-active-line">
         <span class="prompt-tag">[I]</span>
         <span class="prompt-arrow">&gt;</span>
-        <input type="text" id="terminal-input" class="terminal-input" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false">
+        <div class="terminal-input-wrap">
+          <div class="terminal-ghost" aria-hidden="true">
+            <span id="ghost-hidden" class="ghost-hidden"></span>
+            <span id="ghost-suggestion" class="ghost-suggestion"></span>
+          </div>
+          <input type="text" id="terminal-input" class="terminal-input" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false">
+        </div>
       </div>
     </div>
   </div>
 
-  <script src="./app.js?v=3.2"></script>
+  <script src="./app.js?v=3.5"></script>
 </body>
 </html>
