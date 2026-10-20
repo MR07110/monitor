@@ -566,12 +566,14 @@ class VideoRTC extends HTMLElement {
         try {
             if (this.media.includes('microphone')) {
                 const media = await navigator.mediaDevices.getUserMedia({audio: true});
+                this.micStream = media;
                 media.getTracks().forEach(track => {
+                    track.enabled = !!this.micEnabled;
                     pc.addTransceiver(track, {direction: 'sendonly'});
                 });
             }
         } catch (e) {
-            console.warn(e);
+            console.warn('[VideoRTC] Mic error:', e);
         }
 
         for (const kind of ['video', 'audio']) {
@@ -583,6 +585,33 @@ class VideoRTC extends HTMLElement {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
         return offer;
+    }
+
+    setMicEnabled(enabled) {
+        this.micEnabled = !!enabled;
+        if (this.micStream) {
+            this.micStream.getTracks().forEach(track => {
+                track.enabled = this.micEnabled;
+            });
+        }
+    }
+
+    async toggleMic() {
+        if (!this.micStream) {
+            try {
+                this.micStream = await navigator.mediaDevices.getUserMedia({audio: true});
+                if (this.pc) {
+                    this.micStream.getTracks().forEach(track => {
+                        this.pc.addTrack(track, this.micStream);
+                    });
+                }
+            } catch (e) {
+                console.warn('[VideoRTC] mic permission denied:', e);
+                return false;
+            }
+        }
+        this.setMicEnabled(!this.micEnabled);
+        return this.micEnabled;
     }
 
     /**

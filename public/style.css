@@ -278,3 +278,67 @@ video-rtc,
     height: 90px;
   }
 }
+
+/* ================= 5. OVOZ VA IKKI TOMONLAMA GAPIRISH BOSHQARUVI ================= */
+.controls-overlay {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ctrl-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(15, 15, 15, 0.85);
+  color: #ffffff;
+  border: 1px solid #333333;
+  border-radius: 30px;
+  padding: 8px 16px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: all 0.2s ease;
+  user-select: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+}
+
+.ctrl-btn:hover {
+  background: #ffffff;
+  color: #000000;
+  border-color: #ffffff;
+}
+
+.ctrl-btn:active {
+  transform: scale(0.95);
+}
+
+.audio-btn.active {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: #666666;
+  color: #ffffff;
+}
+
+.mic-btn.active {
+  background: #ff3b30;
+  color: #ffffff;
+  border-color: #ff3b30;
+  animation: pulseMic 1.5s infinite;
+}
+
+@keyframes pulseMic {
+  0% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.7); }
+  70% { box-shadow: 0 0 0 10px rgba(255, 59, 48, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); }
+}
+
+.ctrl-svg {
+  display: block;
+}

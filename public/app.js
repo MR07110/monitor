@@ -37,6 +37,11 @@
   const progressBar = document.getElementById('progress-bar');
   const videoEl = document.getElementById('screen-video');
 
+  const audioBtn = document.getElementById('audio-toggle-btn');
+  const audioIconOn = document.getElementById('audio-icon-on');
+  const audioIconOff = document.getElementById('audio-icon-off');
+  const audioLabel = document.getElementById('audio-label');
+
   // Xavfsiz xotira (Refresh bo'lsa darhol uziladi)
   let authToken = null;
   let mpegtsPlayer = null;
@@ -195,7 +200,41 @@
     exitSession();
   });
 
-  // ================= 8. TELEGRAM DARAJASIDAGI WEBRTC STREAM =================
+  // ================= 8. TELEGRAM DARAJASIDAGI WEBRTC STREAM (VIDEO + REALTIME AUDIO) =================
+  function updateAudioUI(isMuted) {
+    if (!audioBtn) return;
+    if (isMuted) {
+      if (audioIconOn) audioIconOn.classList.add('hidden');
+      if (audioIconOff) audioIconOff.classList.remove('hidden');
+      if (audioLabel) audioLabel.textContent = 'Ovozni yoqish';
+      audioBtn.classList.remove('active');
+    } else {
+      if (audioIconOff) audioIconOff.classList.add('hidden');
+      if (audioIconOn) audioIconOn.classList.remove('hidden');
+      if (audioLabel) audioLabel.textContent = 'Ovoz: Yoqiq';
+      audioBtn.classList.add('active');
+    }
+  }
+
+  function toggleAudio() {
+    if (!videoEl) return;
+    const innerVideo = videoEl.video || (videoEl.querySelector ? videoEl.querySelector('video') : null);
+    if (innerVideo) {
+      innerVideo.muted = !innerVideo.muted;
+      if (!innerVideo.muted) {
+        innerVideo.play().catch(() => {});
+      }
+      updateAudioUI(innerVideo.muted);
+    }
+  }
+
+  if (audioBtn) {
+    audioBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleAudio();
+    });
+  }
+
   function startStream() {
     if (prewarmStarted) return;
     prewarmStarted = true;
@@ -205,14 +244,24 @@
     try {
       const streamUrl = getStreamUrl();
       videoEl.mode = 'webrtc,mse';
+      videoEl.media = 'video,audio';
       videoEl.src = streamUrl;
 
       const triggerPlay = () => {
         try {
-          if (videoEl.video) {
-            videoEl.video.muted = true;
-            videoEl.video.playsInline = true;
-            videoEl.video.play().catch(() => {});
+          const innerVideo = videoEl.video || (videoEl.querySelector ? videoEl.querySelector('video') : null);
+          if (innerVideo) {
+            innerVideo.playsInline = true;
+            // Avval unmuted (ovozli) rejimda o'ynatib ko'ramiz
+            innerVideo.muted = false;
+            innerVideo.play().then(() => {
+              updateAudioUI(false);
+            }).catch(() => {
+              // Brauzer avtomatik ovozni cheklasa, muted holatda o'ynatib tugmani ko'rsatamiz
+              innerVideo.muted = true;
+              innerVideo.play().catch(() => {});
+              updateAudioUI(true);
+            });
           }
         } catch (e) {}
       };
