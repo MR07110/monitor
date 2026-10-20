@@ -161,19 +161,13 @@
     authToken = null;
     prewarmStarted = false;
 
-    if (syncTimer) {
-      clearInterval(syncTimer);
-      syncTimer = null;
-    }
-
-    if (mpegtsPlayer) {
+    if (videoEl) {
       try {
-        mpegtsPlayer.pause();
-        mpegtsPlayer.unload();
-        mpegtsPlayer.detachMediaElement();
-        mpegtsPlayer.destroy();
+        if (typeof videoEl.ondisconnect === 'function') {
+          videoEl.ondisconnect();
+        }
+        videoEl.src = '';
       } catch (e) {}
-      mpegtsPlayer = null;
     }
 
     orientationWarning.classList.add('hidden');
@@ -201,96 +195,31 @@
     exitSession();
   });
 
-  // ================= 8. APPARAT 60FPS STREAM (PRE-WARM BILAN 0MS DELAY) =================
+  // ================= 8. TELEGRAM DARAJASIDAGI WEBRTC STREAM =================
   function startStream() {
     if (prewarmStarted) return;
     prewarmStarted = true;
 
-    if (!videoEl || !window.mpegts || !window.mpegts.isSupported()) {
-      exitSession('MPEG-TS brauzer tomonidan qo‘llab-quvvatlanmadi');
-      return;
-    }
+    if (!videoEl) return;
 
     try {
-      videoEl.muted = true;
-      videoEl.defaultMuted = true;
-      videoEl.playsInline = true;
-      videoEl.setAttribute('playsinline', '');
-      videoEl.setAttribute('webkit-playsinline', '');
-
-      mpegtsPlayer = window.mpegts.createPlayer({
-        type: 'mse',
-        isLive: true,
-        url: getStreamUrl()
-      }, {
-        enableWorker: false,
-        lazyLoad: false,
-        autoCleanupSourceBuffer: true,
-        autoCleanupMaxBackwardDuration: 6,
-        autoCleanupMinBackwardDuration: 2,
-        liveBufferLatencyChasing: true,
-        liveBufferLatencyMaxLatency: 0.8,
-        liveBufferLatencyMinRemain: 0.15,
-        liveBufferLatencyChasingOnPaused: false
-      });
-
-      mpegtsPlayer.attachMediaElement(videoEl);
-      mpegtsPlayer.load();
-
-      mpegtsPlayer.on(window.mpegts.Events.ERROR, (errType, errDetail, errInfo) => {
-        console.warn('MPEG-TS xabari:', errType, errDetail);
-      });
-
-      mpegtsPlayer.on(window.mpegts.Events.MEDIA_INFO, () => {
-        videoEl.play().catch(() => {});
-      });
+      const streamUrl = getStreamUrl();
+      videoEl.mode = 'webrtc,mse';
+      videoEl.src = streamUrl;
 
       const triggerPlay = () => {
-        videoEl.muted = true;
-        videoEl.play().catch(() => {});
-      };
-
-      videoEl.addEventListener('loadeddata', triggerPlay, { once: true });
-      videoEl.addEventListener('canplay', triggerPlay, { once: true });
-      triggerPlay();
-
-      document.addEventListener('visibilitychange', () => {
-        if (!document.hidden && videoEl && videoEl.buffered.length > 0) {
-          const end = videoEl.buffered.end(videoEl.buffered.length - 1);
-          videoEl.currentTime = Math.max(0, end - 0.1);
-          videoEl.play().catch(() => {});
-        }
-      });
-
-      // Silliq va barqaror Live Edge sinxronizatsiyasi (qotish va sakrashlarsiz)
-      if (syncTimer) clearInterval(syncTimer);
-      syncTimer = setInterval(() => {
-        if (!videoEl.paused && videoEl.buffered.length > 0) {
-          const end = videoEl.buffered.end(videoEl.buffered.length - 1);
-          const diff = end - videoEl.currentTime;
-
-          // Faqat juda orqada qolib ketgandagina (masalan, brauzer yashirilib qayta ochilganda) seek qilish
-          if (diff > 1.8) {
-            videoEl.currentTime = end - 0.15;
-          } else if (diff > 0.45) {
-            // Sezdirmasdan tezlashtirish (kadr sakratmasdan)
-            videoEl.playbackRate = 1.1;
-          } else if (diff > 0.25) {
-            videoEl.playbackRate = 1.05;
-          } else if (diff < 0.08) {
-            // Bufer tugab qotmasligi uchun ozgina sekinlashtirish
-            videoEl.playbackRate = 0.95;
-          } else {
-            videoEl.playbackRate = 1.0;
+        try {
+          if (videoEl.video) {
+            videoEl.video.muted = true;
+            videoEl.video.playsInline = true;
+            videoEl.video.play().catch(() => {});
           }
-        }
-      }, 250);
-
-      const unpause = () => {
-        if (videoEl.paused) videoEl.play().catch(() => {});
+        } catch (e) {}
       };
-      window.addEventListener('click', unpause);
-      window.addEventListener('touchstart', unpause);
+
+      triggerPlay();
+      window.addEventListener('click', triggerPlay, { once: true });
+      window.addEventListener('touchstart', triggerPlay, { once: true });
     } catch (err) {
       exitSession('Video ulanish xatosi: ' + err.message);
     }

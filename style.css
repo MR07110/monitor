@@ -212,12 +212,16 @@ html, body {
   z-index: 5;
 }
 
-#screen-video {
+video-rtc,
+#screen-video,
+#screen-video video {
   width: 100vw;
   height: 100vh;
   object-fit: contain;
   background: #000000;
   display: block;
+  border: none;
+  outline: none;
 }
 
 /* ================= 4. ORIENTATION PROMPT (MOBILE & TABLET) ================= */
