@@ -197,7 +197,13 @@ class VideoRTC extends HTMLElement {
      * @param {Object} value
      */
     send(value) {
-        if (this.ws) this.ws.send(JSON.stringify(value));
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            try {
+                this.ws.send(JSON.stringify(value));
+            } catch (e) {
+                console.warn('[video-rtc] send error:', e);
+            }
+        }
     }
 
     /** @param {Function} isSupported */
