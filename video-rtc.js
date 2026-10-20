@@ -272,6 +272,13 @@ class VideoRTC extends HTMLElement {
 
         this.appendChild(this.video);
 
+        this.video.addEventListener('waiting', () => {
+            this.play();
+        });
+        this.video.addEventListener('stalled', () => {
+            this.play();
+        });
+
         this.video.addEventListener('error', ev => {
             const err = this.video.error;
             // ondisconnect() dagi video.src='' brauzerda zararsiz "Empty src" xatosi beradi, qayta ulanishga sabab bo'lmasin
@@ -533,6 +540,16 @@ class VideoRTC extends HTMLElement {
         const pc = new RTCPeerConnection(this.pcConfig);
 
         pc.ontrack = ev => {
+            if (ev.receiver) {
+                try {
+                    if ('jitterBufferTarget' in ev.receiver) {
+                        ev.receiver.jitterBufferTarget = 0;
+                    } else if ('playoutDelayHint' in ev.receiver) {
+                        ev.receiver.playoutDelayHint = 0;
+                    }
+                } catch (e) {}
+            }
+
             if (ev.streams && ev.streams[0]) {
                 if (this.video.srcObject !== ev.streams[0]) {
                     this.video.srcObject = ev.streams[0];

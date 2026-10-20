@@ -147,6 +147,10 @@
       welcomeUser.textContent = 'MONITOR';
     }
     showView('welcome-view');
+    // Menyuda turgandayoq orqa fonda WebRTC oqimini oldindan tayyorlab ulab qo'yamiz (0 ms kechikish uchun)
+    setTimeout(() => {
+      startStream();
+    }, 200);
   }
 
   // ================= 6. KONFIGURATSIYA VA AVTORIZATSIYA TEKSHIRUVI =================
@@ -594,6 +598,14 @@
     }
     showView('screen-view');
     startStream();
+    try {
+      const innerVideo = videoEl.video || (videoEl.querySelector ? videoEl.querySelector('video') : null);
+      if (innerVideo) {
+        innerVideo.muted = false;
+        innerVideo.play().catch(() => {});
+        updateAudioUI(false);
+      }
+    } catch (e) {}
     toggleFullscreen(true);
   }
 
