@@ -538,6 +538,8 @@ class VideoRTC extends HTMLElement {
 
     onwebrtc() {
         const pc = new RTCPeerConnection(this.pcConfig);
+        this._mediaStream = new MediaStream();
+        this.video.srcObject = this._mediaStream;
 
         pc.ontrack = ev => {
             if (ev.receiver) {
@@ -551,20 +553,19 @@ class VideoRTC extends HTMLElement {
                 });
             }
 
-            if (ev.streams && ev.streams[0]) {
-                if (this.video.srcObject !== ev.streams[0]) {
-                    this.video.srcObject = ev.streams[0];
-                    this.play();
+            if (ev.track) {
+                if (!this._mediaStream.getTracks().includes(ev.track)) {
+                    this._mediaStream.addTrack(ev.track);
                 }
-            } else if (ev.track) {
-                let s = this.video.srcObject;
-                if (!s || !(s instanceof MediaStream)) {
-                    s = new MediaStream();
-                    this.video.srcObject = s;
-                }
-                s.addTrack(ev.track);
-                this.play();
             }
+            if (ev.streams && ev.streams[0]) {
+                ev.streams[0].getTracks().forEach(t => {
+                    if (!this._mediaStream.getTracks().includes(t)) {
+                        this._mediaStream.addTrack(t);
+                    }
+                });
+            }
+            this.play();
             this.pcState = WebSocket.OPEN;
         };
 
