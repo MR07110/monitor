@@ -46,17 +46,25 @@
   const countdownNum = document.getElementById('countdown-num');
   const progressBar = document.getElementById('progress-bar');
 
-  // 4. Screen View
+  // 4. Screen View & Bottom Bar
   const screenView = document.getElementById('screen-view');
   const videoEl = document.getElementById('screen-video');
-  const audioBtn = document.getElementById('audio-toggle-btn');
-  const audioIconOn = document.getElementById('audio-icon-on');
-  const audioIconOff = document.getElementById('audio-icon-off');
-  const audioLabel = document.getElementById('audio-label');
-  const micBtn = document.getElementById('mic-toggle-btn');
-  const micLabel = document.getElementById('mic-label');
-  const switchToShellBtn = document.getElementById('switch-to-shell-btn');
-  const screenToMenuBtn = document.getElementById('screen-to-menu-btn');
+  const screenBottombar = document.getElementById('screen-bottombar');
+  const barDashboardBtn = document.getElementById('bar-dashboard-btn');
+  const barPauseBtn = document.getElementById('bar-pause-btn');
+  const barIconPause = document.getElementById('bar-icon-pause');
+  const barIconPlay = document.getElementById('bar-icon-play');
+  const barAudioBtn = document.getElementById('bar-audio-btn');
+  const barIconAudioOn = document.getElementById('bar-icon-audio-on');
+  const barIconAudioOff = document.getElementById('bar-icon-audio-off');
+  const barMicBtn = document.getElementById('bar-mic-btn');
+  const barShellBtn = document.getElementById('bar-shell-btn');
+  const barFullscreenBtn = document.getElementById('bar-fullscreen-btn');
+  const barMoreBtn = document.getElementById('bar-more-btn');
+  const barMoreMenu = document.getElementById('bar-more-menu');
+  const menuPipBtn = document.getElementById('menu-pip-btn');
+  const menuReconnectBtn = document.getElementById('menu-reconnect-btn');
+  const menuLogoutBtn = document.getElementById('menu-logout-btn');
   const orientationWarning = document.getElementById('orientation-warning');
 
   // 5. Shell Terminal View
@@ -81,6 +89,37 @@
   let countdownTimer = null;
   let blockCountdownTimer = null;
 
+  let bottombarTimer = null;
+
+  function showBottombar() {
+    if (!screenBottombar) return;
+    screenBottombar.classList.remove('hidden-bar');
+
+    if (bottombarTimer) clearTimeout(bottombarTimer);
+
+    // Agar 3-nuqta menyusi ochiq bo'lmasa 4 soniyadan keyin avtomatik yashiriladi
+    if (!barMoreMenu || barMoreMenu.classList.contains('hidden')) {
+      bottombarTimer = setTimeout(() => {
+        hideBottombar();
+      }, 4000);
+    }
+  }
+
+  function hideBottombar() {
+    if (!screenBottombar) return;
+    if (barMoreMenu) barMoreMenu.classList.add('hidden');
+    screenBottombar.classList.add('hidden-bar');
+  }
+
+  function toggleBottombar() {
+    if (!screenBottombar) return;
+    if (screenBottombar.classList.contains('hidden-bar')) {
+      showBottombar();
+    } else {
+      hideBottombar();
+    }
+  }
+
   // ================= 5. VIEW BOSHQARUVI =================
   function showView(viewId) {
     const views = [loginView, welcomeView, countdownView, screenView, shellView];
@@ -96,6 +135,11 @@
 
     if (viewId !== 'screen-view' && viewId !== 'countdown-view') {
       stopStream();
+      hideBottombar();
+    }
+
+    if (viewId === 'screen-view') {
+      showBottombar();
     }
 
     if (viewId === 'shell-view') {
@@ -295,19 +339,17 @@
     }
   }
 
-  // ================= 10. WEBRTC STREAM & AUDIO =================
+  // ================= 10. WEBRTC STREAM & AUDIO & CONTROLS =================
   function updateAudioUI(isMuted) {
-    if (!audioBtn) return;
+    if (!barAudioBtn) return;
     if (isMuted) {
-      if (audioIconOn) audioIconOn.classList.add('hidden');
-      if (audioIconOff) audioIconOff.classList.remove('hidden');
-      if (audioLabel) audioLabel.textContent = 'Ovozni yoqish';
-      audioBtn.classList.remove('active');
+      if (barIconAudioOn) barIconAudioOn.classList.add('hidden');
+      if (barIconAudioOff) barIconAudioOff.classList.remove('hidden');
+      barAudioBtn.classList.remove('active');
     } else {
-      if (audioIconOff) audioIconOff.classList.add('hidden');
-      if (audioIconOn) audioIconOn.classList.remove('hidden');
-      if (audioLabel) audioLabel.textContent = 'Ovoz: Yoqiq';
-      audioBtn.classList.add('active');
+      if (barIconAudioOff) barIconAudioOff.classList.add('hidden');
+      if (barIconAudioOn) barIconAudioOn.classList.remove('hidden');
+      barAudioBtn.classList.add('active');
     }
   }
 
@@ -323,14 +365,30 @@
     }
   }
 
-  function updateMicUI(active) {
-    if (!micBtn) return;
-    if (active) {
-      micBtn.classList.add('active');
-      if (micLabel) micLabel.textContent = 'Gapiryapsiz...';
+  function togglePause() {
+    if (!videoEl) return;
+    const innerVideo = videoEl.video || (videoEl.querySelector ? videoEl.querySelector('video') : null);
+    if (!innerVideo) return;
+
+    if (innerVideo.paused) {
+      innerVideo.play().catch(() => {});
+      if (barIconPause) barIconPause.classList.remove('hidden');
+      if (barIconPlay) barIconPlay.classList.add('hidden');
+      if (barPauseBtn) barPauseBtn.classList.remove('active');
     } else {
-      micBtn.classList.remove('active');
-      if (micLabel) micLabel.textContent = 'Gapirish';
+      innerVideo.pause();
+      if (barIconPause) barIconPause.classList.add('hidden');
+      if (barIconPlay) barIconPlay.classList.remove('hidden');
+      if (barPauseBtn) barPauseBtn.classList.add('active');
+    }
+  }
+
+  function updateMicUI(active) {
+    if (!barMicBtn) return;
+    if (active) {
+      barMicBtn.classList.add('active');
+    } else {
+      barMicBtn.classList.remove('active');
     }
   }
 
@@ -345,18 +403,27 @@
     updateMicUI(isMicActive);
   }
 
-  if (audioBtn) {
-    audioBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleAudio();
-    });
+  async function togglePictureInPicture() {
+    if (!videoEl) return;
+    const innerVideo = videoEl.video || (videoEl.querySelector ? videoEl.querySelector('video') : null);
+    if (!innerVideo) return;
+    try {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+      } else if (document.pictureInPictureEnabled) {
+        await innerVideo.requestPictureInPicture();
+      }
+    } catch (err) {
+      console.warn('PiP xatosi:', err.message);
+    }
   }
 
-  if (micBtn) {
-    micBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleMic();
-    });
+  function reconnectStream() {
+    stopStream();
+    setTimeout(() => {
+      startStream();
+      showBottombar();
+    }, 150);
   }
 
   function startStream() {
@@ -670,17 +737,120 @@
     });
   }
 
-  // Ekran ustidagi -> Shell
-  if (switchToShellBtn) {
-    switchToShellBtn.addEventListener('click', () => {
+  // Ekranga tekkanda / harakatlanganda bottombarni ko'rsatish
+  if (screenView) {
+    screenView.addEventListener('click', (e) => {
+      if (e.target.closest('#screen-bottombar')) return;
+      toggleBottombar();
+    });
+
+    screenView.addEventListener('mousemove', () => {
+      showBottombar();
+    });
+
+    screenView.addEventListener('touchstart', (e) => {
+      if (e.target.closest('#screen-bottombar')) return;
+      showBottombar();
+    }, { passive: true });
+  }
+
+  // Bottombar -> Bosh menyu (Dashboard)
+  if (barDashboardBtn) {
+    barDashboardBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      showView('welcome-view');
+    });
+  }
+
+  // Bottombar -> Pauza / Play
+  if (barPauseBtn) {
+    barPauseBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      togglePause();
+      showBottombar();
+    });
+  }
+
+  // Bottombar -> Ovoz (Audio On/Off)
+  if (barAudioBtn) {
+    barAudioBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleAudio();
+      showBottombar();
+    });
+  }
+
+  // Bottombar -> Gapirish (Mic On/Off)
+  if (barMicBtn) {
+    barMicBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleMic();
+      showBottombar();
+    });
+  }
+
+  // Bottombar -> Shell
+  if (barShellBtn) {
+    barShellBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
       showView('shell-view');
     });
   }
 
-  // Ekran ustidagi -> Menyu
-  if (screenToMenuBtn) {
-    screenToMenuBtn.addEventListener('click', () => {
-      showView('welcome-view');
+  // Bottombar -> To'liq ekran
+  if (barFullscreenBtn) {
+    barFullscreenBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleFullscreen();
+      showBottombar();
+    });
+  }
+
+  // Bottombar -> 3-Nuqta (More menyu)
+  if (barMoreBtn) {
+    barMoreBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (barMoreMenu) {
+        barMoreMenu.classList.toggle('hidden');
+        if (!barMoreMenu.classList.contains('hidden')) {
+          if (bottombarTimer) clearTimeout(bottombarTimer);
+        } else {
+          showBottombar();
+        }
+      }
+    });
+  }
+
+  // Menyu tashqarisiga bosilganda uni yopish
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.bar-more-wrapper')) {
+      if (barMoreMenu) barMoreMenu.classList.add('hidden');
+    }
+  });
+
+  // More menu -> Picture-in-Picture
+  if (menuPipBtn) {
+    menuPipBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (barMoreMenu) barMoreMenu.classList.add('hidden');
+      togglePictureInPicture();
+    });
+  }
+
+  // More menu -> Qayta ulanish (Reconnect)
+  if (menuReconnectBtn) {
+    menuReconnectBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (barMoreMenu) barMoreMenu.classList.add('hidden');
+      reconnectStream();
+    });
+  }
+
+  // More menu -> Tizimdan chiqish
+  if (menuLogoutBtn) {
+    menuLogoutBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      logoutSession();
     });
   }
 
