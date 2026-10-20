@@ -68,7 +68,6 @@
   const menuPipBtn = document.getElementById('menu-pip-btn');
   const menuReconnectBtn = document.getElementById('menu-reconnect-btn');
   const menuLogoutBtn = document.getElementById('menu-logout-btn');
-  const orientationWarning = document.getElementById('orientation-warning');
 
   // 5. Shell Terminal View
   const shellView = document.getElementById('shell-view');
@@ -152,13 +151,11 @@
         if (terminalInput) terminalInput.focus();
       }, 60);
     }
-
-    checkOrientation();
   }
 
   function showWelcomeView(username) {
     if (welcomeUser) {
-      welcomeUser.textContent = username ? `MONITOR (${username})` : 'MONITOR';
+      welcomeUser.textContent = 'MONITOR';
     }
     showView('welcome-view');
   }
@@ -317,25 +314,6 @@
       shellWs = null;
     }
   }
-
-  // ================= 7. ORIENTATSIYA NAZORATI =================
-  function checkOrientation() {
-    if (!orientationWarning) return;
-    const isPortrait = window.innerHeight > window.innerWidth;
-    const isMobileOrTablet = window.innerWidth <= 1024 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    const isStreaming = screenView && !screenView.classList.contains('hidden');
-
-    if (isStreaming && isPortrait && isMobileOrTablet) {
-      orientationWarning.classList.remove('hidden');
-    } else {
-      orientationWarning.classList.add('hidden');
-    }
-  }
-
-  window.addEventListener('resize', checkOrientation);
-  window.addEventListener('orientationchange', () => {
-    setTimeout(checkOrientation, 200);
-  });
 
   // ================= 8. FULLSCREEN TOGGLE =================
   function toggleFullscreen(forceOpen = false) {
@@ -507,7 +485,7 @@
 
     try {
       const streamUrl = getStreamUrl();
-      videoEl.mode = 'webrtc,mse';
+      videoEl.mode = 'webrtc';
       videoEl.media = 'video,audio,microphone';
       videoEl.src = streamUrl;
 
@@ -863,12 +841,6 @@
   if (modeShellBtn) {
     modeShellBtn.addEventListener('click', () => {
       showView('shell-view');
-      if (terminalHistory && terminalHistory.children.length === 0) {
-        appendTerminalMessage(
-          'MONITOR Interactive Bash Shell v2.0',
-          'Buyruq kiriting (masalan: ls -la, pwd, monitor status, htop, exit).'
-        );
-      }
     });
   }
 

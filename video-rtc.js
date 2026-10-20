@@ -524,6 +524,17 @@ class VideoRTC extends HTMLElement {
     onwebrtc() {
         const pc = new RTCPeerConnection(this.pcConfig);
 
+        pc.ontrack = ev => {
+            const tracks = pc.getTransceivers()
+                .filter(tr => tr.currentDirection === 'recvonly')
+                .map(tr => tr.receiver.track);
+            if (tracks.length > 0) {
+                this.video.srcObject = new MediaStream(tracks);
+                this.play();
+                this.pcState = WebSocket.OPEN;
+            }
+        };
+
         pc.addEventListener('icecandidate', ev => {
             if (ev.candidate && this.mode.includes('webrtc/tcp') && ev.candidate.protocol === 'udp') return;
 
@@ -534,14 +545,15 @@ class VideoRTC extends HTMLElement {
         pc.addEventListener('connectionstatechange', () => {
             if (pc.connectionState === 'connected') {
                 const tracks = pc.getTransceivers()
-                    .filter(tr => tr.currentDirection === 'recvonly') // skip inactive
+                    .filter(tr => tr.currentDirection === 'recvonly')
                     .map(tr => tr.receiver.track);
-                /** @type {HTMLVideoElement} */
-                const video2 = document.createElement('video');
-                video2.addEventListener('loadeddata', () => this.onpcvideo(video2), {once: true});
-                video2.srcObject = new MediaStream(tracks);
+                if (tracks.length > 0) {
+                    this.video.srcObject = new MediaStream(tracks);
+                    this.play();
+                    this.pcState = WebSocket.OPEN;
+                }
             } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
-                pc.close(); // stop next events
+                pc.close();
 
                 this.pcState = WebSocket.CLOSED;
                 this.pc = null;
