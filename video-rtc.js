@@ -541,13 +541,14 @@ class VideoRTC extends HTMLElement {
 
         pc.ontrack = ev => {
             if (ev.receiver) {
-                try {
-                    if ('jitterBufferTarget' in ev.receiver) {
-                        ev.receiver.jitterBufferTarget = 0;
-                    } else if ('playoutDelayHint' in ev.receiver) {
-                        ev.receiver.playoutDelayHint = 0;
-                    }
-                } catch (e) {}
+                try { ev.receiver.jitterBufferTarget = 0; } catch (e) {}
+                try { ev.receiver.playoutDelayHint = 0; } catch (e) {}
+            }
+            if (pc.getReceivers) {
+                pc.getReceivers().forEach(r => {
+                    try { r.jitterBufferTarget = 0; } catch (e) {}
+                    try { r.playoutDelayHint = 0; } catch (e) {}
+                });
             }
 
             if (ev.streams && ev.streams[0]) {
@@ -574,10 +575,25 @@ class VideoRTC extends HTMLElement {
             this.send({type: 'webrtc/candidate', value: candidate});
         });
 
-        pc.addEventListener('connectionstatechange', () => {
+        pc.addEventListener('connectionstatechange', async () => {
             if (pc.connectionState === 'connected') {
                 this.pcState = WebSocket.OPEN;
                 this.play();
+                try {
+                    const stats = await pc.getStats();
+                    stats.forEach(report => {
+                        if (report.type === 'candidate-pair' && (report.state === 'succeeded' || report.nominated)) {
+                            const localCand = stats.get(report.localCandidateId);
+                            const remoteCand = stats.get(report.remoteCandidateId);
+                            const rtt = report.currentRoundTripTime ? (report.currentRoundTripTime * 1000).toFixed(1) + 'ms' : '0ms';
+                            const isLocal = (remoteCand && (remoteCand.candidateType === 'host' || (remoteCand.ip || remoteCand.address || '').startsWith('192.168.')));
+                            console.log(`[WebRTC] Ulanish: ${isLocal ? 'LOKAL WI-FI (0ms kechikish)' : 'BULUT (Relay/Internet)'} | RTT: ${rtt}`);
+                            this.dispatchEvent(new CustomEvent('webrtc-stats', {
+                                detail: { isLocal, rtt, localCand, remoteCand }
+                            }));
+                        }
+                    });
+                } catch (e) {}
             } else if (pc.connectionState === 'failed') {
                 pc.close();
 
@@ -588,19 +604,36 @@ class VideoRTC extends HTMLElement {
             }
         });
 
-        this.onmessage['webrtc'] = msg => {
+        let isRemoteDescSet = false;
+        const pendingCandidates = [];
+
+        this.onmessage['webrtc'] = async msg => {
             switch (msg.type) {
                 case 'webrtc/candidate':
+                    if (!msg.value) return;
                     if (this.mode.includes('webrtc/tcp') && msg.value.includes(' udp ')) return;
 
-                    pc.addIceCandidate({candidate: msg.value, sdpMid: '0'}).catch(er => {
-                        console.warn(er);
-                    });
+                    if (!isRemoteDescSet) {
+                        pendingCandidates.push(msg.value);
+                    } else {
+                        pc.addIceCandidate({candidate: msg.value, sdpMid: '0'}).catch(er => {
+                            console.warn('[VideoRTC] addIceCandidate xatosi:', er);
+                        });
+                    }
                     break;
                 case 'webrtc/answer':
-                    pc.setRemoteDescription({type: 'answer', sdp: msg.value}).catch(er => {
-                        console.warn(er);
-                    });
+                    try {
+                        await pc.setRemoteDescription({type: 'answer', sdp: msg.value});
+                        isRemoteDescSet = true;
+                        while (pendingCandidates.length > 0) {
+                            const cand = pendingCandidates.shift();
+                            pc.addIceCandidate({candidate: cand, sdpMid: '0'}).catch(er => {
+                                console.warn('[VideoRTC] buferlangan candidate xatosi:', er);
+                            });
+                        }
+                    } catch (er) {
+                        console.warn('[VideoRTC] setRemoteDescription xatosi:', er);
+                    }
                     break;
                 case 'error':
                     if (!msg.value.includes('webrtc/offer')) return;

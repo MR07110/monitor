@@ -100,6 +100,10 @@
           </div>
           <h1 id="welcome-user">MONITOR</h1>
           <p>Ish rejimini tanlang</p>
+          <div id="net-tip" class="net-tip hidden">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
+            <span>Wi-Fi tarmog‘idasizmi? 0ms maksimal tezlik: <a id="local-wifi-link" href="#" target="_blank">Lokal Wi-Fi ga o‘tish</a></span>
+          </div>
         </div>
 
         <div class="mode-grid">
@@ -426,16 +430,16 @@
 
     <!-- MOBIL YORDAMCHI TUGMALAR (ESC, TAB, CTRL, ARROWS, SUDO) -->
     <div id="pty-virtual-keys" class="pty-virtual-keys">
-      <button type="button" class="pty-key-btn" data-key="\x1b">ESC</button>
-      <button type="button" class="pty-key-btn" data-key="\t">TAB</button>
-      <button type="button" class="pty-key-btn" data-key="\x03">CTRL+C</button>
-      <button type="button" class="pty-key-btn" data-key="\x04">CTRL+D</button>
-      <button type="button" class="pty-key-btn" data-key="\x1b[A">▲</button>
-      <button type="button" class="pty-key-btn" data-key="\x1b[B">▼</button>
-      <button type="button" class="pty-key-btn" data-key="\x1b[D">◀</button>
-      <button type="button" class="pty-key-btn" data-key="\x1b[C">▶</button>
-      <button type="button" class="pty-key-btn" data-key="sudo ">sudo</button>
-      <button type="button" class="pty-key-btn" data-key="\r">ENTER</button>
+      <button type="button" class="pty-key-btn" data-code="esc">ESC</button>
+      <button type="button" class="pty-key-btn" data-code="tab">TAB</button>
+      <button type="button" class="pty-key-btn" data-code="ctrl_c">CTRL+C</button>
+      <button type="button" class="pty-key-btn" data-code="ctrl_d">CTRL+D</button>
+      <button type="button" class="pty-key-btn" data-code="up">▲</button>
+      <button type="button" class="pty-key-btn" data-code="down">▼</button>
+      <button type="button" class="pty-key-btn" data-code="left">◀</button>
+      <button type="button" class="pty-key-btn" data-code="right">▶</button>
+      <button type="button" class="pty-key-btn" data-code="sudo">sudo</button>
+      <button type="button" class="pty-key-btn" data-code="enter">ENTER</button>
     </div>
   </div>
 

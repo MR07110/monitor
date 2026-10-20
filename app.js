@@ -25,6 +25,8 @@
   const modeScreenBtn = document.getElementById('mode-screen-btn');
   const modeShellBtn = document.getElementById('mode-shell-btn');
   const logoutBtn = document.getElementById('logout-btn');
+  const netTip = document.getElementById('net-tip');
+  const localWifiLink = document.getElementById('local-wifi-link');
 
   // 3. Countdown View
   const countdownView = document.getElementById('countdown-view');
@@ -154,6 +156,17 @@
     }
   }
 
+  function updateLanTip(lanUrl) {
+    if (!netTip || !localWifiLink) return;
+    const isAlreadyLocal = window.location.hostname.startsWith('192.168.') || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (!isAlreadyLocal && lanUrl) {
+      localWifiLink.href = lanUrl;
+      netTip.classList.remove('hidden');
+    } else {
+      netTip.classList.add('hidden');
+    }
+  }
+
   function showWelcomeView(username) {
     if (welcomeUser) {
       welcomeUser.textContent = 'MONITOR';
@@ -219,6 +232,9 @@
           if (authData && authData.authenticated) {
             authToken = authData.token || savedToken;
             currentUsername = authData.username || localStorage.getItem('desktop_username') || 'muhamad';
+            if (authData.lanUrl) {
+              updateLanTip(authData.lanUrl);
+            }
             showWelcomeView(currentUsername);
             return;
           }
@@ -1241,6 +1257,9 @@
           localStorage.setItem('desktop_username', currentUsername);
 
           if (passwordInput) passwordInput.value = '';
+          if (data.lanUrl) {
+            updateLanTip(data.lanUrl);
+          }
           showWelcomeView(currentUsername);
         } else {
           if (data.retryAfterSeconds) {
@@ -1456,16 +1475,43 @@
   }
 
   // Virtual klaviatura tugmalari (mobil / planshet uchun qulaylik)
+  const PTY_KEY_MAP = {
+    'up': '\x1b[A',
+    'down': '\x1b[B',
+    'right': '\x1b[C',
+    'left': '\x1b[D',
+    'esc': '\x1b',
+    'tab': '\t',
+    'ctrl_c': '\x03',
+    'ctrl_d': '\x04',
+    'enter': '\r',
+    'sudo': 'sudo '
+  };
+
   if (ptyVirtualKeys) {
-    ptyVirtualKeys.addEventListener('click', (e) => {
+    const handleKeyAction = (e) => {
       const btn = e.target.closest('.pty-key-btn');
       if (!btn) return;
-      const key = btn.getAttribute('data-key');
-      if (key && ptyWs && ptyWs.readyState === WebSocket.OPEN) {
-        ptyWs.send(key);
+      e.preventDefault();
+      e.stopPropagation();
+
+      const code = btn.getAttribute('data-code');
+      const directKey = btn.getAttribute('data-key');
+      let payload = (code && PTY_KEY_MAP[code]) ? PTY_KEY_MAP[code] : directKey;
+      if (payload && payload.includes('\\x1b')) {
+        payload = payload.replace(/\\x1b/g, '\x1b').replace(/\\r/g, '\r').replace(/\\t/g, '\t').replace(/\\x03/g, '\x03').replace(/\\x04/g, '\x04');
       }
-      if (ptyTerm) ptyTerm.focus();
-    });
+
+      if (payload && ptyWs && ptyWs.readyState === WebSocket.OPEN) {
+        ptyWs.send(payload);
+      }
+      if (ptyTerm) {
+        ptyTerm.focus();
+      }
+    };
+
+    ptyVirtualKeys.addEventListener('pointerdown', handleKeyAction);
+    ptyVirtualKeys.addEventListener('click', (e) => e.preventDefault());
   }
 
   // ================= 16. ISHGA TUSHIRISH =================
